@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir d:DocumentsProjectlottery-appslottery-v2 /b /s)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}
