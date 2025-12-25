@@ -7,7 +7,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { participantRepository, couponRepository, eventRepository } from '@/repositories'
+import { participantRepository, couponRepository } from '@/repositories'
 import type { CreateParticipantData } from '@/repositories/interfaces'
 import { eventKeys } from './useEvents'
 import { couponKeys } from './useCoupons'
@@ -74,6 +74,7 @@ export function useParticipantsPaginated(
       })
     },
     enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevent refetch on step navigation
   })
 }
 
@@ -98,6 +99,7 @@ export function useParticipantCount(eventId: string | undefined) {
     queryKey: participantKeys.count(eventId!),
     queryFn: () => participantRepository.getCount(eventId!),
     enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevent refetch on step navigation
   })
 }
 
@@ -182,34 +184,22 @@ export function useIncrementParticipantWinCount() {
 
 /**
  * Hook to delete a single participant
- * Cascade deletes all coupons and updates event analytics
+ * Note: participantRepository.delete() already handles updating
+ * event.totalParticipants and event.totalCoupons in the repository layer
  */
 export function useDeleteParticipant() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ id, eventId }: { id: string; eventId: string }) => {
-      // Get participant to know couponCount for event update
-      const participant = await participantRepository.getByEventAndParticipantId(eventId, id)
-      if (!participant) {
-        throw new Error(`Participant with id ${id} not found`)
-      }
-
-      const couponCount = participant.couponCount
-
-      // Delete all coupons for this participant
+      // Delete all coupons for this participant first
+      // Note: deleteByParticipantId does NOT update counts (bulk delete)
       await couponRepository.deleteByParticipantId(eventId, id)
 
-      // Delete participant
-      await participantRepository.delete(eventId, id)
-
-      // Update event analytics (decrement totalParticipants by 1, totalCoupons by couponCount)
-      const event = await eventRepository.getById(eventId)
-      if (event) {
-        await eventRepository.update(eventId, {
-          totalParticipants: Math.max(0, event.totalParticipants - 1),
-          totalCoupons: Math.max(0, event.totalCoupons - couponCount),
-        })
+      // Delete participant (repository handles event count updates)
+      const deleted = await participantRepository.delete(eventId, id)
+      if (!deleted) {
+        throw new Error(`Participant with id ${id} not found`)
       }
 
       return eventId

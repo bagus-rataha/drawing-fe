@@ -124,13 +124,13 @@ export function ImportPreview({
             <PaginatedTable
               headers={groupedHeaders}
               rows={groupedData}
-              pageSize={15}
+              pageSize={5}
             />
           ) : (
             <PaginatedTable
               headers={detailHeaders}
               rows={detailData}
-              pageSize={15}
+              pageSize={5}
             />
           )}
         </CardContent>

@@ -16,25 +16,25 @@ export function Header() {
   const isHome = location.pathname === '/'
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">Lottery App</span>
-          </Link>
-        </div>
+    <header className="sticky top-0 z-40 w-full h-16 bg-white border-b border-border-custom">
+      <div className="container flex h-full items-center justify-between px-6">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <Trophy className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-lg font-bold text-navy">LotteryApp</span>
+        </Link>
 
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          {isHome && (
-            <Button asChild>
-              <Link to="/event/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Event
-              </Link>
-            </Button>
-          )}
-        </div>
+        {/* Create Button */}
+        {isHome && (
+          <Button size="sm" asChild>
+            <Link to="/event/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Event
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   )

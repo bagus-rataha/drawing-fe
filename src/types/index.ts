@@ -137,6 +137,8 @@ export interface Event {
   totalParticipants: number
   /** Calculated total number of coupons */
   totalCoupons: number
+  /** Calculated total number of prizes */
+  totalPrizes: number
   /** Timestamp when event was created */
   createdAt: Date
   /** Timestamp when event was last updated */

@@ -173,9 +173,35 @@ export const couponRepository: ICouponRepository = {
 
   /**
    * Delete a coupon using compound key
+   * Also updates event.totalCoupons and participant.couponCount
    */
   async delete(eventId: string, id: string): Promise<boolean> {
+    // Get coupon first to know participantId
+    const coupon = await db.coupons
+      .where('[eventId+id]')
+      .equals([eventId, id])
+      .first()
+
+    if (!coupon) {
+      return false
+    }
+
+    // Delete coupon
     await db.coupons.where('[eventId+id]').equals([eventId, id]).delete()
+
+    // Update event totalCoupons
+    await db.events.where('id').equals(eventId).modify((event) => {
+      event.totalCoupons = Math.max(0, (event.totalCoupons || 0) - 1)
+    })
+
+    // Update participant couponCount
+    await db.participants
+      .where('[eventId+id]')
+      .equals([eventId, coupon.participantId])
+      .modify((participant) => {
+        participant.couponCount = Math.max(0, (participant.couponCount || 0) - 1)
+      })
+
     return true
   },
 

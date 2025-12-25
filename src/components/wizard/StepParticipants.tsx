@@ -29,20 +29,22 @@ import {
 import { ParticipantTableSkeleton } from '@/components/ui/ParticipantTableSkeleton'
 import { importExcelWithProgress, parseExcelFile } from '@/services/excelService'
 import {
-  useDeleteParticipant,
-  useDeleteCoupon,
-  useDeleteCouponsByParticipant,
   useParticipantsPaginated,
   useCouponsPaginated,
   useEvent,
   useDebounce,
 } from '@/hooks'
+import { useEventStore } from '@/stores'
 
 interface StepParticipantsProps {
   eventId: string
   importStats: ImportStats | null
   /** Whether existing data is available (for edit mode) - triggers paginated fetch */
   hasExistingData?: boolean
+  /** Previously imported participants (persisted in parent for navigation back) */
+  importedParticipants?: Participant[]
+  /** Previously imported coupons (persisted in parent for navigation back) */
+  importedCoupons?: Coupon[]
   onImport: (
     participants: { id: string; eventId: string; name?: string; customFields: Record<string, string>; couponCount: number }[],
     coupons: { id: string; eventId: string; participantId: string; weight: number }[],
@@ -77,6 +79,8 @@ export function StepParticipants({
   eventId,
   importStats,
   hasExistingData = false,
+  importedParticipants = [],
+  importedCoupons = [],
   onImport,
   onNext,
   onPrev,
@@ -93,9 +97,13 @@ export function StepParticipants({
 
   // Hooks
   const { toast } = useToast()
-  const deleteParticipant = useDeleteParticipant()
-  const deleteCoupon = useDeleteCoupon()
-  const deleteCouponsByParticipant = useDeleteCouponsByParticipant()
+
+  // Get pending deletes and actions from store (for atomic edit)
+  const {
+    pendingDeletes,
+    markParticipantForDelete,
+    markCouponForDelete,
+  } = useEventStore()
 
   // State machine
   const [phase, setPhase] = useState<ImportPhase>(getInitialPhase)
@@ -108,7 +116,7 @@ export function StepParticipants({
 
   // Pagination state for 'existing' phase
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(15)
+  const [pageSize, setPageSize] = useState(5)
 
   // Search state (for server-side search in 'existing' phase)
   const [searchInput, setSearchInput] = useState('')
@@ -126,7 +134,6 @@ export function StepParticipants({
   const {
     data: paginatedParticipants,
     isFetching: isFetchingParticipants,
-    refetch: refetchParticipants,
   } = useParticipantsPaginated(
     phase === 'existing' && viewMode === 'grouped' ? eventId : undefined,
     page,
@@ -137,7 +144,6 @@ export function StepParticipants({
   const {
     data: paginatedCoupons,
     isFetching: isFetchingCoupons,
-    refetch: refetchCoupons,
   } = useCouponsPaginated(
     phase === 'existing' && viewMode === 'detail' ? eventId : undefined,
     page,
@@ -145,8 +151,8 @@ export function StepParticipants({
     debouncedSearch // Pass search query for server-side filtering
   )
 
-  // Check if any delete is in progress
-  const isDeleting = deleteParticipant.isPending || deleteCoupon.isPending || deleteCouponsByParticipant.isPending
+  // For atomic edit, isDeleting is always false (we just mark, not execute)
+  const isDeleting = false
 
   // Initial loading state - show full skeleton ONLY when event data hasn't loaded yet
   // Analytics come from Event, so we only need to wait for event data
@@ -172,7 +178,16 @@ export function StepParticipants({
     setPage(1)
   }, [viewMode, debouncedSearch])
 
+  // Calculate pending delete coupon count from participants marked for deletion
+  const pendingParticipantCouponCount = useMemo(() => {
+    if (!paginatedParticipants?.data) return 0
+    return paginatedParticipants.data
+      .filter((p) => pendingDeletes.participantIds.includes(p.id))
+      .reduce((sum, p) => sum + (p.couponCount || 0), 0)
+  }, [paginatedParticipants, pendingDeletes.participantIds])
+
   // Build stats from existing data (from Event entity - pre-computed values)
+  // Adjusted to reflect pending deletes
   const existingStats: ImportStats | null = useMemo(() => {
     if (!event) return null
     if (event.totalParticipants === 0 && event.totalCoupons === 0) return null
@@ -183,32 +198,43 @@ export function StepParticipants({
       customFields.push(...Object.keys(paginatedParticipants.data[0].customFields))
     }
 
+    // Adjust counts for pending deletes
+    const adjustedParticipants = event.totalParticipants - pendingDeletes.participantIds.length
+    const adjustedCoupons = event.totalCoupons
+      - pendingDeletes.couponIds.length
+      - pendingParticipantCouponCount
+
     return {
-      totalRows: event.totalCoupons,
-      validRows: event.totalCoupons,
+      totalRows: adjustedCoupons,
+      validRows: adjustedCoupons,
       invalidRows: 0,
-      uniqueParticipants: event.totalParticipants,
-      totalCoupons: event.totalCoupons,
+      uniqueParticipants: adjustedParticipants,
+      totalCoupons: adjustedCoupons,
       customFields,
       errors: [],
     }
-  }, [event, paginatedParticipants])
+  }, [event, paginatedParticipants, pendingDeletes, pendingParticipantCouponCount])
 
   // Prepare data for grouped view (by participant) - for 'existing' phase uses paginated data
+  // Filters out participants marked for pending deletion
   const groupedData = useMemo(() => {
     if (phase === 'existing' && paginatedParticipants?.data) {
-      // For existing phase, couponCount is already included in participant data
-      return paginatedParticipants.data.map((p) => ({
-        participant_id: p.id,
-        participant_name: p.name || '-',
-        coupon_count: p.couponCount, // Now directly available from data
-        ...p.customFields,
-      }))
+      // For existing phase, filter out pending deletes and map
+      return paginatedParticipants.data
+        .filter((p) => !pendingDeletes.participantIds.includes(p.id))
+        .map((p) => ({
+          participant_id: p.id,
+          participant_name: p.name || '-',
+          coupon_count: p.couponCount, // Now directly available from data
+          ...p.customFields,
+        }))
     }
-    // For complete phase (imported data)
-    if (parsedData) {
-      return parsedData.participants.map((p) => {
-        const participantCoupons = parsedData.coupons.filter((c) => c.participantId === p.id)
+    // For complete phase (imported data) - use parsedData or fallback to props
+    const participants = parsedData?.participants || importedParticipants
+    const coupons = parsedData?.coupons || importedCoupons
+    if (participants.length > 0) {
+      return participants.map((p) => {
+        const participantCoupons = coupons.filter((c) => c.participantId === p.id)
         return {
           participant_id: p.id,
           participant_name: p.name || '-',
@@ -218,23 +244,31 @@ export function StepParticipants({
       })
     }
     return []
-  }, [phase, paginatedParticipants, parsedData])
+  }, [phase, paginatedParticipants, parsedData, pendingDeletes.participantIds, importedParticipants, importedCoupons])
 
   // Prepare data for detail view (all coupons) - for 'existing' phase uses paginated data
+  // Filters out coupons marked for deletion and coupons from participants marked for deletion
   const detailData = useMemo(() => {
     if (phase === 'existing' && paginatedCoupons?.data) {
-      // For existing phase, we show paginated coupons
-      return paginatedCoupons.data.map((c) => ({
-        coupon_id: c.id,
-        participant_id: c.participantId,
-        participant_name: '-', // Would need separate lookup
-        weight: c.weight,
-      }))
+      // For existing phase, filter out pending deletes
+      return paginatedCoupons.data
+        .filter((c) =>
+          !pendingDeletes.couponIds.includes(c.id) &&
+          !pendingDeletes.participantIds.includes(c.participantId)
+        )
+        .map((c) => ({
+          coupon_id: c.id,
+          participant_id: c.participantId,
+          participant_name: '-', // Would need separate lookup
+          weight: c.weight,
+        }))
     }
-    // For complete phase (imported data)
-    if (parsedData) {
-      const participantMap = new Map(parsedData.participants.map((p) => [p.id, p]))
-      return parsedData.coupons.map((c) => {
+    // For complete phase (imported data) - use parsedData or fallback to props
+    const participants = parsedData?.participants || importedParticipants
+    const coupons = parsedData?.coupons || importedCoupons
+    if (coupons.length > 0) {
+      const participantMap = new Map(participants.map((p) => [p.id, p]))
+      return coupons.map((c) => {
         const participant = participantMap.get(c.participantId)
         return {
           coupon_id: c.id,
@@ -246,7 +280,7 @@ export function StepParticipants({
       })
     }
     return []
-  }, [phase, paginatedCoupons, parsedData])
+  }, [phase, paginatedCoupons, parsedData, pendingDeletes, importedParticipants, importedCoupons])
 
   // Headers for each view
   const currentStats = parsedData?.stats || importStats || existingStats
@@ -355,56 +389,30 @@ export function StepParticipants({
     })
   }, [])
 
-  // Actually perform the deletion after confirmation
-  const confirmDelete = useCallback(async () => {
+  // Mark for deletion (atomic edit - actual delete happens on save)
+  const confirmDelete = useCallback(() => {
     if (!deleteTarget) return
 
-    try {
-      if (deleteTarget.type === 'participant') {
-        // Delete all coupons for this participant first
-        await deleteCouponsByParticipant.mutateAsync({
-          participantId: deleteTarget.id,
-          eventId,
-        })
-        // Then delete the participant
-        await deleteParticipant.mutateAsync({
-          id: deleteTarget.id,
-          eventId,
-        })
-        refetchParticipants()
-        toast({
-          title: 'Deleted',
-          description: 'Participant and coupons have been deleted.',
-        })
-      } else {
-        // Delete single coupon
-        await deleteCoupon.mutateAsync({
-          id: deleteTarget.id,
-          eventId,
-        })
-        refetchCoupons()
-        toast({
-          title: 'Deleted',
-          description: 'Coupon has been deleted.',
-        })
-      }
-      setDeleteTarget(null)
-    } catch (err) {
+    if (deleteTarget.type === 'participant') {
+      // Mark participant for deletion (will be executed on save)
+      markParticipantForDelete(deleteTarget.id)
       toast({
-        title: 'Error',
-        description: `Failed to delete ${deleteTarget.type}.`,
-        variant: 'destructive',
+        title: 'Marked for deletion',
+        description: 'Participant will be deleted when you save.',
       })
-      setDeleteTarget(null)
+    } else {
+      // Mark coupon for deletion (will be executed on save)
+      markCouponForDelete(deleteTarget.id)
+      toast({
+        title: 'Marked for deletion',
+        description: 'Coupon will be deleted when you save.',
+      })
     }
+    setDeleteTarget(null)
   }, [
     deleteTarget,
-    eventId,
-    deleteParticipant,
-    deleteCoupon,
-    deleteCouponsByParticipant,
-    refetchParticipants,
-    refetchCoupons,
+    markParticipantForDelete,
+    markCouponForDelete,
     toast,
   ])
 

@@ -475,7 +475,7 @@ export async function importExcelWithProgress(
   // Detect custom fields
   const customFields = detectCustomFields(headers)
 
-  // Process rows with progress updates
+  // Process rows with progress updates (batched to prevent UI freeze)
   const errors: ImportError[] = []
   const participantsMap = new Map<string, Participant>()
   const coupons: Coupon[] = []
@@ -486,94 +486,103 @@ export async function importExcelWithProgress(
   const totalRows = rows.length
   const progressStart = 40
   const progressEnd = 90
+  const BATCH_SIZE = 1000 // Process 1000 rows per batch
 
-  rows.forEach((row, index) => {
-    const rowNum = index + 2 // +2 for header row and 1-indexed
+  // Process rows in batches to keep UI responsive
+  for (let batchStart = 0; batchStart < totalRows; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, totalRows)
 
-    // Update progress every 1000 rows
-    if (index % 1000 === 0) {
-      const progressPercent = progressStart + ((progressEnd - progressStart) * index / totalRows)
-      onProgress?.(progressPercent, `Processing row ${index + 1} of ${totalRows}...`)
-    }
+    // Process current batch
+    for (let index = batchStart; index < batchEnd; index++) {
+      const row = rows[index]
+      const rowNum = index + 2 // +2 for header row and 1-indexed
 
-    // Get coupon_id
-    const couponId = String(row[couponIdCol] || '').trim()
-    if (!couponId) {
-      errors.push({
-        row: rowNum,
-        column: 'coupon_id',
-        message: 'coupon_id is required',
-      })
-      return
-    }
-
-    // Check for duplicate coupon_id
-    if (couponIds.has(couponId)) {
-      errors.push({
-        row: rowNum,
-        column: 'coupon_id',
-        message: 'Duplicate coupon_id',
-        value: couponId,
-      })
-      return
-    }
-    couponIds.add(couponId)
-
-    // Get participant_id
-    const participantId = String(row[participantIdCol] || '').trim()
-    if (!participantId) {
-      errors.push({
-        row: rowNum,
-        column: 'participant_id',
-        message: 'participant_id is required',
-      })
-      return
-    }
-
-    // Increment coupon count for this participant
-    couponCountMap.set(participantId, (couponCountMap.get(participantId) || 0) + 1)
-
-    // Get optional fields
-    const name = nameCol ? String(row[nameCol] || '').trim() : undefined
-    const email = emailCol ? String(row[emailCol] || '').trim() : undefined
-    const phone = phoneCol ? String(row[phoneCol] || '').trim() : undefined
-    const weight = weightCol
-      ? parseFloat(String(row[weightCol])) || DEFAULT_COUPON_WEIGHT
-      : DEFAULT_COUPON_WEIGHT
-
-    // Build custom fields
-    const customFieldsData: Record<string, string> = {}
-    customFields.forEach((field) => {
-      const value = row[field]
-      if (value !== undefined && value !== '') {
-        customFieldsData[field] = String(value).trim()
+      // Get coupon_id
+      const couponId = String(row[couponIdCol] || '').trim()
+      if (!couponId) {
+        errors.push({
+          row: rowNum,
+          column: 'coupon_id',
+          message: 'coupon_id is required',
+        })
+        continue
       }
-    })
 
-    // Create or update participant
-    if (!participantsMap.has(participantId)) {
-      participantsMap.set(participantId, {
-        id: participantId,
+      // Check for duplicate coupon_id
+      if (couponIds.has(couponId)) {
+        errors.push({
+          row: rowNum,
+          column: 'coupon_id',
+          message: 'Duplicate coupon_id',
+          value: couponId,
+        })
+        continue
+      }
+      couponIds.add(couponId)
+
+      // Get participant_id
+      const participantId = String(row[participantIdCol] || '').trim()
+      if (!participantId) {
+        errors.push({
+          row: rowNum,
+          column: 'participant_id',
+          message: 'participant_id is required',
+        })
+        continue
+      }
+
+      // Increment coupon count for this participant
+      couponCountMap.set(participantId, (couponCountMap.get(participantId) || 0) + 1)
+
+      // Get optional fields
+      const name = nameCol ? String(row[nameCol] || '').trim() : undefined
+      const email = emailCol ? String(row[emailCol] || '').trim() : undefined
+      const phone = phoneCol ? String(row[phoneCol] || '').trim() : undefined
+      const weight = weightCol
+        ? parseFloat(String(row[weightCol])) || DEFAULT_COUPON_WEIGHT
+        : DEFAULT_COUPON_WEIGHT
+
+      // Build custom fields
+      const customFieldsData: Record<string, string> = {}
+      customFields.forEach((field) => {
+        const value = row[field]
+        if (value !== undefined && value !== '') {
+          customFieldsData[field] = String(value).trim()
+        }
+      })
+
+      // Create or update participant
+      if (!participantsMap.has(participantId)) {
+        participantsMap.set(participantId, {
+          id: participantId,
+          eventId,
+          name,
+          email,
+          phone,
+          customFields: customFieldsData,
+          couponCount: 0, // Will be set after all rows are processed
+          winCount: 0,
+          status: 'active',
+        })
+      }
+
+      // Create coupon
+      coupons.push({
+        id: couponId,
         eventId,
-        name,
-        email,
-        phone,
-        customFields: customFieldsData,
-        couponCount: 0, // Will be set after all rows are processed
-        winCount: 0,
+        participantId,
+        weight,
         status: 'active',
       })
     }
 
-    // Create coupon
-    coupons.push({
-      id: couponId,
-      eventId,
-      participantId,
-      weight,
-      status: 'active',
-    })
-  })
+    // Update progress after each batch
+    const progressPercent = progressStart + ((progressEnd - progressStart) * batchEnd / totalRows)
+    onProgress?.(progressPercent, `Processing row ${batchEnd} of ${totalRows}...`)
+
+    // Yield to main thread to keep UI responsive
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
 
   onProgress?.(95, 'Finalizing...')
 

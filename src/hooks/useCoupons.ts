@@ -7,7 +7,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { couponRepository, participantRepository, eventRepository } from '@/repositories'
+import { couponRepository } from '@/repositories'
 import type { CreateCouponData } from '@/repositories/interfaces'
 import { eventKeys } from './useEvents'
 import { participantKeys } from './useParticipants'
@@ -76,6 +76,7 @@ export function useCouponsPaginated(
       })
     },
     enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevent refetch on step navigation
   })
 }
 
@@ -125,6 +126,7 @@ export function useCouponCount(eventId: string | undefined) {
     queryKey: couponKeys.count(eventId!),
     queryFn: () => couponRepository.getCount(eventId!),
     enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevent refetch on step navigation
   })
 }
 
@@ -263,38 +265,18 @@ export function useVoidCouponsByParticipant() {
 
 /**
  * Hook to delete a single coupon
- * Cascade updates participant.couponCount and event.totalCoupons
+ * Note: couponRepository.delete() already handles updating
+ * participant.couponCount and event.totalCoupons in the repository layer
  */
 export function useDeleteCoupon() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ id, eventId }: { id: string; eventId: string }) => {
-      // Get coupon to know the participantId
-      const coupon = await couponRepository.getById(id)
-      if (!coupon) {
+      // Delete coupon (repository handles all count updates)
+      const deleted = await couponRepository.delete(eventId, id)
+      if (!deleted) {
         throw new Error(`Coupon with id ${id} not found`)
-      }
-
-      const participantId = coupon.participantId
-
-      // Delete coupon
-      await couponRepository.delete(eventId, id)
-
-      // Decrement participant couponCount
-      const participant = await participantRepository.getByEventAndParticipantId(eventId, participantId)
-      if (participant) {
-        await participantRepository.update(participantId, {
-          couponCount: Math.max(0, participant.couponCount - 1),
-        })
-      }
-
-      // Decrement event totalCoupons
-      const event = await eventRepository.getById(eventId)
-      if (event) {
-        await eventRepository.update(eventId, {
-          totalCoupons: Math.max(0, event.totalCoupons - 1),
-        })
       }
 
       return eventId

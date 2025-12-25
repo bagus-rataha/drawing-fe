@@ -180,9 +180,30 @@ export const participantRepository: IParticipantRepository = {
 
   /**
    * Delete a participant using compound key
+   * Also updates event totalParticipants and totalCoupons
    */
   async delete(eventId: string, id: string): Promise<boolean> {
+    // Get participant first to know coupon count
+    const participant = await db.participants
+      .where('[eventId+id]')
+      .equals([eventId, id])
+      .first()
+
+    if (!participant) {
+      return false
+    }
+
+    const couponCount = participant.couponCount || 0
+
+    // Delete participant
     await db.participants.where('[eventId+id]').equals([eventId, id]).delete()
+
+    // Update event counts
+    await db.events.where('id').equals(eventId).modify((event) => {
+      event.totalParticipants = Math.max(0, (event.totalParticipants || 0) - 1)
+      event.totalCoupons = Math.max(0, (event.totalCoupons || 0) - couponCount)
+    })
+
     return true
   },
 

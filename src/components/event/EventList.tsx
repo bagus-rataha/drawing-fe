@@ -15,13 +15,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Filter } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Search, Filter, Calendar } from 'lucide-react'
 import { EVENT_STATUS_LABELS } from '@/utils/constants'
 import { debounce } from '@/utils/helpers'
 
 interface EventListProps {
   events: Event[]
-  prizeCounts: Record<string, number>
   isLoading?: boolean
   onDelete?: (id: string) => void
   onDuplicate?: (id: string) => void
@@ -32,7 +32,6 @@ interface EventListProps {
  */
 export function EventList({
   events,
-  prizeCounts,
   isLoading = false,
   onDelete,
   onDuplicate,
@@ -109,34 +108,28 @@ export function EventList({
         </div>
       </div>
 
-      {/* Event Grid */}
+      {/* Event List */}
       {filteredEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="text-muted-foreground">
-            {events.length === 0 ? (
-              <>
-                <p className="text-lg font-medium">No events yet</p>
-                <p className="text-sm">
-                  Create your first event to get started
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-lg font-medium">No events found</p>
-                <p className="text-sm">
-                  Try adjusting your search or filter
-                </p>
-              </>
-            )}
-          </div>
-        </div>
+        <EmptyState
+          icon={Calendar}
+          title={events.length === 0 ? 'No events yet' : 'No events found'}
+          description={
+            events.length === 0
+              ? 'Create your first lottery event to get started'
+              : 'Try adjusting your search or filter'
+          }
+          action={
+            events.length === 0
+              ? { label: '+ Create Event', href: '/event/new' }
+              : undefined
+          }
+        />
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-4">
           {filteredEvents.map((event) => (
             <EventCard
               key={event.id}
               event={event}
-              prizeCount={prizeCounts[event.id] || 0}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
             />
@@ -155,16 +148,14 @@ function EventListSkeleton() {
     <div className="space-y-6">
       {/* Search and Filter Skeleton */}
       <div className="flex flex-col gap-4 sm:flex-row">
-        <Skeleton className="h-10 flex-1" />
-        <Skeleton className="h-10 w-[150px]" />
+        <Skeleton className="h-11 flex-1" />
+        <Skeleton className="h-11 w-[150px]" />
       </div>
 
       {/* Event Cards Skeleton */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-col gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="space-y-3">
-            <Skeleton className="h-48 w-full rounded-xl" />
-          </div>
+          <Skeleton key={i} className="h-56 w-full rounded-xl" />
         ))}
       </div>
     </div>

@@ -33,6 +33,7 @@ export interface UpdateEventData {
   status?: EventStatus
   totalParticipants?: number
   totalCoupons?: number
+  totalPrizes?: number
 }
 
 /**
@@ -94,13 +95,13 @@ export interface IEventRepository {
   duplicate(id: string): Promise<Event>
 
   /**
-   * Update event statistics (totalParticipants, totalCoupons)
+   * Update event statistics (totalParticipants, totalCoupons, totalPrizes)
    * @param id - Event ID
    * @param stats - Statistics to update
    * @returns Updated event
    */
   updateStats(
     id: string,
-    stats: { totalParticipants: number; totalCoupons: number }
+    stats: { totalParticipants?: number; totalCoupons?: number; totalPrizes?: number }
   ): Promise<Event>
 }

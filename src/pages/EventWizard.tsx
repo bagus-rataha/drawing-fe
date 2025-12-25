@@ -7,7 +7,7 @@
  * - /event/:id/edit : Edit existing event
  */
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import {
@@ -38,6 +38,9 @@ import {
   useDeleteParticipantsByEvent,
   useDeleteCouponsByEvent,
   useUpdateEventStats,
+  useDeleteParticipant,
+  useDeleteCoupon,
+  useUnsavedChangesWarning,
 } from '@/hooks'
 import type { PrizeFormData, ImportStats, Participant, Coupon } from '@/types'
 import { generateId } from '@/utils/helpers'
@@ -68,10 +71,14 @@ export function EventWizard() {
   const deleteParticipantsByEvent = useDeleteParticipantsByEvent()
   const deleteCouponsByEvent = useDeleteCouponsByEvent()
   const updateEventStats = useUpdateEventStats()
+  const deleteParticipant = useDeleteParticipant()
+  const deleteCoupon = useDeleteCoupon()
 
   // Store
   const {
     wizard,
+    pendingDeletes,
+    isWizardInitialized,
     setWizardStep,
     nextStep,
     prevStep,
@@ -81,6 +88,7 @@ export function EventWizard() {
     setDisplaySettings,
     setImportStats,
     initWizardForEdit,
+    clearPendingDeletes,
   } = useEventStore()
 
   const { toast } = useToast()
@@ -92,12 +100,35 @@ export function EventWizard() {
   // Track whether wizard has been initialized for the current event (prevents infinite loop)
   const initializedEventIdRef = useRef<string | null>(null)
 
+  // Detect unsaved changes for browser refresh warning
+  const hasUnsavedChanges = useMemo(() => {
+    // Create mode: any wizard data counts as unsaved
+    if (!isEditing) {
+      const hasEventInfo = wizard.eventInfo.name.trim() !== ''
+      const hasPrizes = wizard.prizes.length > 0
+      const hasParticipants = importedParticipants.length > 0
+      return hasEventInfo || hasPrizes || hasParticipants
+    }
+
+    // Edit mode: check for pending deletes or imported data changes
+    const hasPendingDeletes =
+      pendingDeletes.participantIds.length > 0 ||
+      pendingDeletes.couponIds.length > 0
+    const hasNewImport = importedParticipants.length > 0
+
+    return hasPendingDeletes || hasNewImport
+  }, [isEditing, wizard.eventInfo.name, wizard.prizes.length, importedParticipants.length, pendingDeletes])
+
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(hasUnsavedChanges)
+
   // Initialize wizard for editing (with guard to prevent infinite loop)
+  // IMPORTANT: Must wait for BOTH event AND prizes to finish loading before initializing
   useEffect(() => {
     if (
       isEditing &&
       existingEvent &&
-      existingPrizes &&
+      !isLoadingPrizes && // Ensure prizes are fully loaded (not just default empty array)
       initializedEventIdRef.current !== existingEvent.id
     ) {
       const prizeFormData: PrizeFormData[] = existingPrizes.map((p) => ({
@@ -111,7 +142,7 @@ export function EventWizard() {
       initWizardForEdit(existingEvent, prizeFormData)
       initializedEventIdRef.current = existingEvent.id
     }
-  }, [isEditing, existingEvent, existingPrizes, initWizardForEdit])
+  }, [isEditing, existingEvent, existingPrizes, isLoadingPrizes, initWizardForEdit])
 
   // Reset wizard on unmount or when creating new
   useEffect(() => {
@@ -218,6 +249,7 @@ export function EventWizard() {
             winnerDisplayMode: displaySettings.winnerDisplayMode,
             customFieldsToShow: displaySettings.customFieldsToShow,
           },
+          totalPrizes: prizes.length,
           status,
         },
       })
@@ -273,6 +305,23 @@ export function EventWizard() {
             totalCoupons: importStats?.totalCoupons || 0,
           },
         })
+
+        // Clear pending deletes since we re-imported everything
+        clearPendingDeletes()
+      } else if (pendingDeletes.couponIds.length > 0 || pendingDeletes.participantIds.length > 0) {
+        // Execute pending deletes (atomic edit)
+        // Delete coupons first (before participants, to avoid cascade issues)
+        for (const couponId of pendingDeletes.couponIds) {
+          await deleteCoupon.mutateAsync({ id: couponId, eventId: id })
+        }
+
+        // Delete participants (will cascade delete their coupons too)
+        for (const participantId of pendingDeletes.participantIds) {
+          await deleteParticipant.mutateAsync({ id: participantId, eventId: id })
+        }
+
+        // Clear pending deletes after execution
+        clearPendingDeletes()
       }
     } else {
       // Create new event
@@ -311,6 +360,16 @@ export function EventWizard() {
         )
       }
 
+      // Update stats (including totalPrizes)
+      await updateEventStats.mutateAsync({
+        id: newEvent.id,
+        stats: {
+          totalPrizes: prizes.length,
+          totalParticipants: importStats?.uniqueParticipants || 0,
+          totalCoupons: importStats?.totalCoupons || 0,
+        },
+      })
+
       // Create participants and coupons
       if (importedParticipants.length > 0) {
         await createManyParticipants.mutateAsync(
@@ -333,14 +392,6 @@ export function EventWizard() {
             weight: c.weight,
           }))
         )
-
-        await updateEventStats.mutateAsync({
-          id: newEvent.id,
-          stats: {
-            totalParticipants: importStats?.uniqueParticipants || 0,
-            totalCoupons: importStats?.totalCoupons || 0,
-          },
-        })
       }
 
       // Update status if ready
@@ -353,15 +404,18 @@ export function EventWizard() {
     }
   }
 
-  // Loading state
-  if (isEditing && (isLoadingEvent || isLoadingPrizes || isLoadingParticipantCount || isLoadingCouponCount)) {
+  // Loading state - wait for both query loading AND wizard initialization
+  // isWizardInitialized ensures store is populated before rendering wizard steps
+  if (isEditing && (isLoadingEvent || isLoadingPrizes || isLoadingParticipantCount || isLoadingCouponCount || !isWizardInitialized)) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-surface-alt">
         <Header />
         <main className="container py-8">
           <Skeleton className="mb-4 h-8 w-48" />
           <Skeleton className="mb-8 h-12 w-full" />
-          <Skeleton className="h-96 w-full" />
+          <div className="mx-auto max-w-[832px]">
+            <Skeleton className="h-96 w-full rounded-xl" />
+          </div>
         </main>
       </div>
     )
@@ -371,32 +425,32 @@ export function EventWizard() {
   const availableCustomFields = wizard.importStats?.customFields || []
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-surface-alt">
       <Header />
 
       {/* Full-screen save loading overlay */}
       {isSaving && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="flex flex-col items-center gap-3 rounded-lg bg-white p-6 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 shadow-modal">
             <Spinner size="lg" />
-            <p className="text-sm font-medium">Menyimpan data...</p>
+            <p className="text-sm font-medium text-navy">Menyimpan data...</p>
           </div>
         </div>
       )}
 
       <main className="container py-8">
-        {/* Back Button */}
-        <Button variant="ghost" className="mb-4" asChild>
-          <Link to="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Events
-          </Link>
-        </Button>
-
-        {/* Title */}
-        <h1 className="mb-8 text-3xl font-bold">
-          {isEditing ? 'Edit Event' : 'Create New Event'}
-        </h1>
+        {/* Breadcrumb & Title - aligned with form container */}
+        <div className="mx-auto max-w-[832px]">
+          <Button variant="ghost" className="mb-2 -ml-4" asChild>
+            <Link to="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Events
+            </Link>
+          </Button>
+          <h1 className="mb-6 text-3xl font-bold text-navy">
+            {isEditing ? 'Edit Event' : 'Create New Event'}
+          </h1>
+        </div>
 
         {/* Stepper */}
         <div className="mb-8">
@@ -406,8 +460,8 @@ export function EventWizard() {
           />
         </div>
 
-        {/* Step Content */}
-        <div className="mx-auto max-w-3xl">
+        {/* Step Content - Form Container */}
+        <div className="mx-auto max-w-[832px] rounded-xl bg-white p-8 shadow-card">
           {wizard.currentStep === 1 && (
             <StepEventInfo
               data={wizard.eventInfo}
@@ -430,6 +484,8 @@ export function EventWizard() {
               eventId={eventId}
               importStats={wizard.importStats}
               hasExistingData={isEditing && hasExistingData}
+              importedParticipants={importedParticipants}
+              importedCoupons={importedCoupons}
               onImport={handleImport}
               onNext={nextStep}
               onPrev={prevStep}

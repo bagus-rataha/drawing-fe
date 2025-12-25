@@ -178,7 +178,7 @@ export function useUpdateEventStats() {
       stats,
     }: {
       id: string
-      stats: { totalParticipants: number; totalCoupons: number }
+      stats: { totalParticipants?: number; totalCoupons?: number; totalPrizes?: number }
     }) => eventRepository.updateStats(id, stats),
     onSuccess: (event) => {
       queryClient.invalidateQueries({ queryKey: eventKeys.lists() })

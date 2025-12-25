@@ -11,7 +11,7 @@
 // ============================================
 
 /** Current database version for Dexie migrations */
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 /** Database name */
 export const DB_NAME = 'LotteryAppDB'

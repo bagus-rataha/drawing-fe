@@ -33,8 +33,10 @@ import {
   ArrowRight,
   AlertCircle,
   Gift,
+  ImageIcon,
 } from 'lucide-react'
 import { generateId } from '@/utils/helpers'
+import { PrizeImageUpload } from './PrizeImageUpload'
 import { validatePrize, validatePrizes } from '@/services/validationService'
 import { DRAW_MODE_LABELS, DEFAULT_DRAW_CONFIG } from '@/utils/constants'
 
@@ -127,10 +129,22 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
         >
           <GripVertical className="h-5 w-5" />
         </div>
-        <div className="flex-1">
+        {/* Prize Image Thumbnail */}
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-surface-alt">
+          {prize.image ? (
+            <img
+              src={prize.image}
+              alt={prize.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-content-muted" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium">#{index + 1}</span>
-            <span className="font-semibold">{prize.name}</span>
+            <span className="truncate font-semibold">{prize.name}</span>
           </div>
           <div className="text-sm text-muted-foreground">
             {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} ·{' '}
@@ -211,6 +225,7 @@ export function StepPrizes({
     return {
       id: generateId(),
       name: '',
+      image: undefined,
       quantity: 1,
       drawMode: DEFAULT_DRAW_CONFIG.mode,
       batches: [],
@@ -386,33 +401,46 @@ export function StepPrizes({
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Prize Name */}
-            <div className="space-y-2">
-              <Label htmlFor="prizeName">
-                Prize Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="prizeName"
-                value={formData.name}
-                onChange={(e) => handleFormChange('name', e.target.value)}
-                placeholder="e.g., Grand Prize"
-              />
-            </div>
+            {/* Image + Name row */}
+            <div className="flex gap-4">
+              {/* Prize Image */}
+              <div className="flex-shrink-0 space-y-2">
+                <Label>Image</Label>
+                <PrizeImageUpload
+                  value={formData.image}
+                  onChange={(value) => handleFormChange('image', value ?? '')}
+                />
+              </div>
 
-            {/* Quantity */}
-            <div className="space-y-2">
-              <Label htmlFor="prizeQuantity">
-                Quantity <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="prizeQuantity"
-                type="number"
-                min={1}
-                value={formData.quantity}
-                onChange={(e) =>
-                  handleFormChange('quantity', parseInt(e.target.value) || 1)
-                }
-              />
+              {/* Prize Name + Quantity */}
+              <div className="flex-1 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="prizeName">
+                    Prize Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="prizeName"
+                    value={formData.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    placeholder="e.g., Grand Prize"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prizeQuantity">
+                    Quantity <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="prizeQuantity"
+                    type="number"
+                    min={1}
+                    value={formData.quantity}
+                    onChange={(e) =>
+                      handleFormChange('quantity', parseInt(e.target.value) || 1)
+                    }
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Draw Mode */}

@@ -54,7 +54,7 @@ interface PaginatedTableProps {
   searchValue?: string
 }
 
-const PAGE_SIZE_OPTIONS = [15, 25, 50, 100]
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100]
 
 /**
  * Paginated table with search and page size selector
@@ -62,7 +62,7 @@ const PAGE_SIZE_OPTIONS = [15, 25, 50, 100]
 export function PaginatedTable({
   headers,
   rows,
-  pageSize = 15,
+  pageSize = 5,
   showSearch = true,
   rowKey,
   onDelete,

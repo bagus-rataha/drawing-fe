@@ -6,7 +6,7 @@
  * Shows all events with search, filter, and CRUD actions
  */
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { EventList } from '@/components/event/EventList'
 import {
@@ -30,19 +30,6 @@ export function Home() {
     name: string
     message: string
   } | null>(null)
-
-  // Get prize counts for all events
-  const eventIds = useMemo(() => events.map((e) => e.id), [events])
-
-  // Simple prize count tracking (in a real app, this could be optimized)
-  const prizeCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    // For now, we'll just show 0 - in production this would fetch prize counts
-    eventIds.forEach((id) => {
-      counts[id] = 0
-    })
-    return counts
-  }, [eventIds])
 
   const handleDelete = (id: string) => {
     const event = events.find((e) => e.id === id)
@@ -85,24 +72,19 @@ export function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-surface-alt">
       <Header />
 
       <main className="container py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Events</h1>
-          <p className="mt-2 text-muted-foreground">
-            Manage your lottery and raffle events
-          </p>
+        {/* Centered event list container */}
+        <div className="mx-auto max-w-[720px]">
+          <EventList
+            events={events}
+            isLoading={isLoading}
+            onDelete={handleDelete}
+            onDuplicate={handleDuplicate}
+          />
         </div>
-
-        <EventList
-          events={events}
-          prizeCounts={prizeCounts}
-          isLoading={isLoading}
-          onDelete={handleDelete}
-          onDuplicate={handleDuplicate}
-        />
       </main>
 
       {/* Delete Confirmation Dialog */}

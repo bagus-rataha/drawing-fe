@@ -74,6 +74,7 @@ export const eventRepository: IEventRepository = {
       status: 'draft',
       totalParticipants: 0,
       totalCoupons: 0,
+      totalPrizes: 0,
       createdAt: now,
       updatedAt: now,
     }
@@ -140,7 +141,10 @@ export const eventRepository: IEventRepository = {
     const now = new Date()
     const newId = generateId()
 
-    // Create duplicated event
+    // Get original prizes to copy and count
+    const originalPrizes = await db.prizes.where('eventId').equals(id).toArray()
+
+    // Create duplicated event (copy totalPrizes from original)
     const duplicated: Event = {
       ...original,
       id: newId,
@@ -148,6 +152,7 @@ export const eventRepository: IEventRepository = {
       status: 'draft',
       totalParticipants: 0,
       totalCoupons: 0,
+      totalPrizes: originalPrizes.length,
       createdAt: now,
       updatedAt: now,
     }
@@ -157,11 +162,6 @@ export const eventRepository: IEventRepository = {
       await db.events.add(duplicated)
 
       // Duplicate prizes
-      const originalPrizes = await db.prizes
-        .where('eventId')
-        .equals(id)
-        .toArray()
-
       for (const prize of originalPrizes) {
         await db.prizes.add({
           ...prize,
@@ -180,7 +180,7 @@ export const eventRepository: IEventRepository = {
    */
   async updateStats(
     id: string,
-    stats: { totalParticipants: number; totalCoupons: number }
+    stats: { totalParticipants?: number; totalCoupons?: number; totalPrizes?: number }
   ): Promise<Event> {
     return this.update(id, stats)
   },

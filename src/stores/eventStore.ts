@@ -26,6 +26,15 @@ import {
 } from '@/utils/constants'
 
 /**
+ * Pending deletes for atomic edit mode
+ * Deletes are queued and only executed on save
+ */
+interface PendingDeletes {
+  participantIds: string[]
+  couponIds: string[]
+}
+
+/**
  * Event store state interface
  */
 interface EventStoreState {
@@ -34,6 +43,12 @@ interface EventStoreState {
 
   // Wizard state
   wizard: WizardState
+
+  // Pending deletes for atomic edit (only execute on save)
+  pendingDeletes: PendingDeletes
+
+  // Flag to track if wizard is fully initialized (for edit mode)
+  isWizardInitialized: boolean
 
   // Actions - Event
   setCurrentEvent: (event: Event | null) => void
@@ -55,6 +70,14 @@ interface EventStoreState {
   setDisplaySettings: (settings: DisplaySettingsFormData) => void
   setImportStats: (stats: ImportStats | null) => void
 
+  // Actions - Pending deletes (atomic edit)
+  markParticipantForDelete: (participantId: string) => void
+  markCouponForDelete: (couponId: string) => void
+  unmarkParticipantForDelete: (participantId: string) => void
+  unmarkCouponForDelete: (couponId: string) => void
+  clearPendingDeletes: () => void
+  getPendingDeleteCounts: () => { participants: number; coupons: number }
+
   // Actions - Initialize wizard for editing
   initWizardForEdit: (event: Event, prizes: PrizeFormData[]) => void
 }
@@ -71,6 +94,14 @@ const initialWizardState: WizardState = {
 }
 
 /**
+ * Initial pending deletes state
+ */
+const initialPendingDeletes: PendingDeletes = {
+  participantIds: [],
+  couponIds: [],
+}
+
+/**
  * Event store for managing event and wizard state
  */
 export const useEventStore = create<EventStoreState>()(
@@ -79,6 +110,8 @@ export const useEventStore = create<EventStoreState>()(
       // Initial state
       currentEvent: null,
       wizard: initialWizardState,
+      pendingDeletes: initialPendingDeletes,
+      isWizardInitialized: false,
 
       // Event actions
       setCurrentEvent: (event) => set({ currentEvent: event }),
@@ -110,6 +143,8 @@ export const useEventStore = create<EventStoreState>()(
         set({
           wizard: initialWizardState,
           currentEvent: null,
+          pendingDeletes: initialPendingDeletes,
+          isWizardInitialized: false,
         }),
 
       // Wizard data actions
@@ -171,12 +206,64 @@ export const useEventStore = create<EventStoreState>()(
           wizard: { ...state.wizard, importStats: stats },
         })),
 
+      // Pending delete actions (atomic edit)
+      markParticipantForDelete: (participantId) =>
+        set((state) => ({
+          pendingDeletes: {
+            ...state.pendingDeletes,
+            participantIds: state.pendingDeletes.participantIds.includes(participantId)
+              ? state.pendingDeletes.participantIds
+              : [...state.pendingDeletes.participantIds, participantId],
+          },
+        })),
+
+      markCouponForDelete: (couponId) =>
+        set((state) => ({
+          pendingDeletes: {
+            ...state.pendingDeletes,
+            couponIds: state.pendingDeletes.couponIds.includes(couponId)
+              ? state.pendingDeletes.couponIds
+              : [...state.pendingDeletes.couponIds, couponId],
+          },
+        })),
+
+      unmarkParticipantForDelete: (participantId) =>
+        set((state) => ({
+          pendingDeletes: {
+            ...state.pendingDeletes,
+            participantIds: state.pendingDeletes.participantIds.filter(
+              (id) => id !== participantId
+            ),
+          },
+        })),
+
+      unmarkCouponForDelete: (couponId) =>
+        set((state) => ({
+          pendingDeletes: {
+            ...state.pendingDeletes,
+            couponIds: state.pendingDeletes.couponIds.filter((id) => id !== couponId),
+          },
+        })),
+
+      clearPendingDeletes: () =>
+        set({ pendingDeletes: initialPendingDeletes }),
+
+      getPendingDeleteCounts: () => {
+        const { pendingDeletes } = get()
+        return {
+          participants: pendingDeletes.participantIds.length,
+          coupons: pendingDeletes.couponIds.length,
+        }
+      },
+
       // Initialize wizard for editing existing event
       initWizardForEdit: (event, prizes) => {
         const { wizard } = get()
 
         set({
           currentEvent: event,
+          pendingDeletes: initialPendingDeletes, // Clear pending deletes on init
+          isWizardInitialized: true, // Mark as initialized after all data is set
           wizard: {
             ...wizard,
             currentStep: 1,

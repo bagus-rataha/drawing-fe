@@ -21,6 +21,9 @@ export function ImportProgress({ phase, progress, message }: ImportProgressProps
     importing: 'Saving to database...',
   }
 
+  // Use same rounded value for both text and bar to ensure sync
+  const roundedProgress = Math.round(progress)
+
   return (
     <Card>
       <CardContent className="p-6">
@@ -35,12 +38,12 @@ export function ImportProgress({ phase, progress, message }: ImportProgressProps
           <div className="w-full max-w-md">
             <div className="mb-2 flex justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium">{Math.round(progress)}%</span>
+              <span className="font-medium">{roundedProgress}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                className="h-full rounded-full bg-primary transition-[width] duration-150 ease-out"
+                style={{ width: `${roundedProgress}%` }}
               />
             </div>
           </div>

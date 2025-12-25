@@ -37,17 +37,42 @@ class LotteryDatabase extends Dexie {
   constructor() {
     super(DB_NAME)
 
-    this.version(DB_VERSION).stores({
-      // Primary key definitions:
-      // - events, prizes, winners: use simple 'id' as globally unique
-      // - participants, coupons: use compound key [eventId+id] for per-event uniqueness
-      //   This allows same participant_id/coupon_id in different events
+    // Version 3: Base schema
+    this.version(3).stores({
       events: 'id, status, createdAt, updatedAt',
       prizes: 'id, eventId, sequence',
       participants: '[eventId+id], eventId, status',
       coupons: '[eventId+id], eventId, participantId, status, [eventId+status]',
       winners: 'id, eventId, prizeId, participantId, drawnAt',
     })
+
+    // Version 4: Add totalPrizes to events (no index change, just data migration)
+    this.version(DB_VERSION)
+      .stores({
+        // Primary key definitions:
+        // - events, prizes, winners: use simple 'id' as globally unique
+        // - participants, coupons: use compound key [eventId+id] for per-event uniqueness
+        //   This allows same participant_id/coupon_id in different events
+        events: 'id, status, createdAt, updatedAt',
+        prizes: 'id, eventId, sequence',
+        participants: '[eventId+id], eventId, status',
+        coupons: '[eventId+id], eventId, participantId, status, [eventId+status]',
+        winners: 'id, eventId, prizeId, participantId, drawnAt',
+      })
+      .upgrade(async (tx) => {
+        // Migrate existing events: set totalPrizes based on actual prize count
+        const events = await tx.table('events').toArray()
+        for (const event of events) {
+          if (event.totalPrizes === undefined) {
+            const prizeCount = await tx
+              .table('prizes')
+              .where('eventId')
+              .equals(event.id)
+              .count()
+            await tx.table('events').update(event.id, { totalPrizes: prizeCount })
+          }
+        }
+      })
   }
 }
 

@@ -33,19 +33,15 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
                 onClick={() => isClickable && onStepClick(stepNumber)}
                 disabled={!isClickable}
                 className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-medium transition-colors',
-                  isCompleted &&
-                    'border-primary bg-primary text-primary-foreground',
-                  isActive &&
-                    'border-primary bg-background text-primary',
-                  !isActive &&
-                    !isCompleted &&
-                    'border-muted-foreground/30 bg-background text-muted-foreground',
-                  isClickable && 'cursor-pointer hover:bg-primary/10'
+                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors',
+                  isCompleted && 'bg-success text-white',
+                  isActive && 'bg-primary text-white',
+                  !isActive && !isCompleted && 'bg-border-custom text-content-muted',
+                  isClickable && 'cursor-pointer hover:opacity-80'
                 )}
               >
                 {isCompleted ? (
-                  <Check className="h-5 w-5" />
+                  <Check className="h-4 w-4" />
                 ) : (
                   stepNumber
                 )}
@@ -54,9 +50,10 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
               {/* Step Label (visible on larger screens) */}
               <span
                 className={cn(
-                  'ml-2 hidden text-sm font-medium md:inline',
-                  isActive && 'text-primary',
-                  !isActive && 'text-muted-foreground'
+                  'ml-2 hidden text-sm md:inline',
+                  isCompleted && 'text-success',
+                  isActive && 'font-semibold text-primary',
+                  !isActive && !isCompleted && 'text-content-muted'
                 )}
               >
                 {label}
@@ -66,10 +63,8 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
               {index < WIZARD_STEP_LABELS.length - 1 && (
                 <div
                   className={cn(
-                    'mx-4 h-0.5 w-8 md:w-12',
-                    stepNumber < currentStep
-                      ? 'bg-primary'
-                      : 'bg-muted-foreground/30'
+                    'mx-4 h-0.5 w-12',
+                    stepNumber < currentStep ? 'bg-success' : 'bg-border-custom'
                   )}
                 />
               )}
