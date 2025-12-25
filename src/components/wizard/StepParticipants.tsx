@@ -230,21 +230,18 @@ export function StepParticipants({
         }))
     }
     // For complete phase (imported data) - use parsedData or fallback to props
+    // IMPORTANT: Use pre-computed couponCount to avoid O(n*m) filter operation
     const participants = parsedData?.participants || importedParticipants
-    const coupons = parsedData?.coupons || importedCoupons
     if (participants.length > 0) {
-      return participants.map((p) => {
-        const participantCoupons = coupons.filter((c) => c.participantId === p.id)
-        return {
-          participant_id: p.id,
-          participant_name: p.name || '-',
-          coupon_count: participantCoupons.length,
-          ...p.customFields,
-        }
-      })
+      return participants.map((p) => ({
+        participant_id: p.id,
+        participant_name: p.name || '-',
+        coupon_count: p.couponCount, // Pre-computed in excelService, avoids O(n*m) filter
+        ...p.customFields,
+      }))
     }
     return []
-  }, [phase, paginatedParticipants, parsedData, pendingDeletes.participantIds, importedParticipants, importedCoupons])
+  }, [phase, paginatedParticipants, parsedData, pendingDeletes.participantIds, importedParticipants])
 
   // Prepare data for detail view (all coupons) - for 'existing' phase uses paginated data
   // Filters out coupons marked for deletion and coupons from participants marked for deletion

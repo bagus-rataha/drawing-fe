@@ -115,7 +115,7 @@ export function EventList({
           title={events.length === 0 ? 'No events yet' : 'No events found'}
           description={
             events.length === 0
-              ? 'Create your first lottery event to get started'
+              ? 'Create your first raffle event to get started'
               : 'Try adjusting your search or filter'
           }
           action={

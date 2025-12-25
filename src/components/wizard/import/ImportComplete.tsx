@@ -27,7 +27,7 @@ export function ImportComplete({ stats, onReimport }: ImportCompleteProps) {
           <div className="flex-1">
             <p className="font-medium text-green-800">Import Successful</p>
             <p className="text-sm text-green-700">
-              Data has been validated and is ready for the lottery draw
+              Data has been validated and is ready for the raffle draw
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={onReimport}>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Trophy } from 'lucide-react'
 
 /**
- * Header component for the lottery app
+ * Header component for the raffle app
  * Shows app title and primary navigation
  */
 export function Header() {
@@ -23,7 +23,7 @@ export function Header() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Trophy className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-navy">LotteryApp</span>
+          <span className="text-lg font-bold text-navy">RaffleApp</span>
         </Link>
 
         {/* Create Button */}
