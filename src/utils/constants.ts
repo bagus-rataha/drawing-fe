@@ -217,4 +217,36 @@ export const SPHERE_CONFIG = {
 
   /** Rotation speed when idle (multiplier) */
   idleSpeed: 0.1,
+
+  // ============================================
+  // ZOOM CONFIG
+  // ============================================
+
+  /** Minimum camera distance (closest zoom) */
+  zoomMin: 8,
+
+  /** Maximum camera distance (farthest zoom) */
+  zoomMax: 20,
+
+  /** Zoom speed/sensitivity */
+  zoomSpeed: 0.5,
+
+  // ============================================
+  // TEXTURE ATLAS CONFIG
+  // ============================================
+
+  /** Number of columns in texture atlas */
+  atlasColumns: 10,
+
+  /** Width of each cell in atlas (pixels) */
+  atlasCellWidth: 128,
+
+  /** Height of each cell in atlas (pixels) */
+  atlasCellHeight: 64,
+
+  /** Maximum number of texts to include in atlas */
+  atlasMaxTexts: 100,
+
+  /** Percentage of cards to update per frame (0.02 = 2%) */
+  updatePercentPerFrame: 0.02,
 }

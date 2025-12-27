@@ -9,13 +9,17 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { InstancedCards } from './InstancedCards'
 import { SPHERE_CONFIG } from '@/utils/constants'
+import type { CouponForAtlas } from '@/utils/textureAtlas'
+import type { WinnerDisplayMode } from '@/types'
 
 interface SphereMeshProps {
   isSpinning: boolean
   isIdle: boolean
+  coupons: CouponForAtlas[]
+  displayMode: WinnerDisplayMode
 }
 
-export function SphereMesh({ isSpinning, isIdle }: SphereMeshProps) {
+export function SphereMesh({ isSpinning, isIdle, coupons, displayMode }: SphereMeshProps) {
   const groupRef = useRef<THREE.Group>(null)
 
   // Animation loop - Y-axis rotation only
@@ -40,7 +44,9 @@ export function SphereMesh({ isSpinning, isIdle }: SphereMeshProps) {
         rows={SPHERE_CONFIG.rows}
         cardWidth={SPHERE_CONFIG.cardWidth}
         cardHeight={SPHERE_CONFIG.cardHeight}
-        color={SPHERE_CONFIG.cardColor}
+        cardColor={SPHERE_CONFIG.cardColor}
+        coupons={coupons}
+        displayMode={displayMode}
       />
     </group>
   )

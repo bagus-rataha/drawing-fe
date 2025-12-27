@@ -3,9 +3,10 @@
  * @description Main draw screen with 3D sphere animation and overlay winner cards
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { eventRepository, prizeRepository } from '@/repositories'
+import { eventRepository, prizeRepository, couponRepository, participantRepository } from '@/repositories'
+import type { Coupon, Participant } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
 import { DrawHeader } from '@/components/draw/DrawHeader'
 import { PrizePanel } from '@/components/draw/PrizePanel'
@@ -29,6 +30,8 @@ export function DrawScreen() {
   // Data state
   const [event, setEvent] = useState<Event | null>(null)
   const [prizes, setPrizes] = useState<Prize[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
 
   // UI state
@@ -65,9 +68,22 @@ export function DrawScreen() {
   const gridX = event?.displaySettings?.gridX || DEFAULT_GRID.gridX
   const gridY = event?.displaySettings?.gridY || DEFAULT_GRID.gridY
 
+  // Background image from event settings
+  const backgroundImage = event?.displaySettings?.backgroundImage
+
   // Calculate pagination
   const cardsPerPage = gridX * gridY
   const totalPages = Math.max(1, Math.ceil(winners.length / cardsPerPage))
+
+  // Map coupons with participant names for sphere display
+  const couponsWithNames = useMemo(() => {
+    const participantMap = new Map(participants.map((p) => [p.id, p.name]))
+    return coupons.map((c) => ({
+      id: c.id,
+      participantId: c.participantId,
+      participantName: participantMap.get(c.participantId),
+    }))
+  }, [coupons, participants])
 
   // Load event data
   useEffect(() => {
@@ -76,15 +92,19 @@ export function DrawScreen() {
     const loadData = async () => {
       setLoading(true)
       try {
-        const [eventData, prizesData] = await Promise.all([
+        const [eventData, prizesData, couponsData, participantsData] = await Promise.all([
           eventRepository.getById(eventId),
           prizeRepository.getByEventId(eventId),
+          couponRepository.getByEventId(eventId),
+          participantRepository.getByEventId(eventId),
         ])
 
         if (eventData) {
           setEvent(eventData)
         }
         setPrizes(prizesData)
+        setCoupons(couponsData)
+        setParticipants(participantsData)
       } catch (error) {
         console.error('[DrawScreen] Failed to load event data:', error)
       } finally {
@@ -166,7 +186,18 @@ export function DrawScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f9fc] flex flex-col">
+    <div
+      className="min-h-screen bg-[#f6f9fc] flex flex-col relative"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Background overlay for readability when image is set */}
+      {backgroundImage && <div className="absolute inset-0 bg-black/20 pointer-events-none" />}
+
       {/* Confetti */}
       <Confetti trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
 
@@ -191,7 +222,12 @@ export function DrawScreen() {
       <div className="flex-1 relative">
         {/* Sphere Layer - Background */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <Sphere3D isSpinning={isSpinning} isIdle={isIdle} />
+          <Sphere3D
+            isSpinning={isSpinning}
+            isIdle={isIdle}
+            coupons={couponsWithNames}
+            displayMode={displayMode}
+          />
         </div>
 
         {/* Winner Cards Layer - Overlay (centered, no gap) */}

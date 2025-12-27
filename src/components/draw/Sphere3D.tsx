@@ -7,10 +7,15 @@ import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { SphereMesh } from './SphereMesh'
+import { SPHERE_CONFIG } from '@/utils/constants'
+import type { CouponForAtlas } from '@/utils/textureAtlas'
+import type { WinnerDisplayMode } from '@/types'
 
 interface Sphere3DProps {
   isSpinning: boolean
   isIdle: boolean
+  coupons: CouponForAtlas[]
+  displayMode: WinnerDisplayMode
 }
 
 function LoadingFallback() {
@@ -22,7 +27,7 @@ function LoadingFallback() {
   )
 }
 
-export function Sphere3D({ isSpinning, isIdle }: Sphere3DProps) {
+export function Sphere3D({ isSpinning, isIdle, coupons, displayMode }: Sphere3DProps) {
   return (
     <div className="w-[700px] h-[700px]">
       <Canvas camera={{ position: [0, 0, 14], fov: 60 }}>
@@ -30,11 +35,23 @@ export function Sphere3D({ isSpinning, isIdle }: Sphere3DProps) {
         <pointLight position={[10, 10, 10]} intensity={0.5} />
 
         <Suspense fallback={<LoadingFallback />}>
-          <SphereMesh isSpinning={isSpinning} isIdle={isIdle} />
+          <SphereMesh
+            isSpinning={isSpinning}
+            isIdle={isIdle}
+            coupons={coupons}
+            displayMode={displayMode}
+          />
         </Suspense>
 
-        {/* Disable orbit controls during spin for better UX */}
-        <OrbitControls enableZoom={false} enablePan={false} enabled={!isSpinning} />
+        {/* Zoom controls - scroll to zoom in/out, no pan/rotate (sphere auto-rotates) */}
+        <OrbitControls
+          enableZoom={true}
+          enablePan={false}
+          enableRotate={false}
+          minDistance={SPHERE_CONFIG.zoomMin}
+          maxDistance={SPHERE_CONFIG.zoomMax}
+          zoomSpeed={SPHERE_CONFIG.zoomSpeed}
+        />
       </Canvas>
     </div>
   )
