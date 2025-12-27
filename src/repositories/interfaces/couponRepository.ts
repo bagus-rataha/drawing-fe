@@ -132,6 +132,7 @@ export interface ICouponRepository {
 
   /**
    * Void a coupon (set status to 'void')
+   * Used when confirming winners - permanently removes from pool
    * @param id - Coupon ID
    * @returns Updated coupon
    */
@@ -144,6 +145,24 @@ export interface ICouponRepository {
    * @returns Number of coupons voided
    */
   voidByParticipantId(eventId: string, participantId: string): Promise<number>
+
+  /**
+   * Cancel a coupon (set status to 'cancelled')
+   * Used during draw when winner is auto-cancelled - temporarily removes from pool
+   * @param eventId - Event ID
+   * @param id - Coupon ID
+   * @returns Updated coupon
+   */
+  cancel(eventId: string, id: string): Promise<Coupon>
+
+  /**
+   * Restore a cancelled coupon (set status back to 'active')
+   * Used when redrawing - puts coupon back in pool
+   * @param eventId - Event ID
+   * @param id - Coupon ID
+   * @returns Updated coupon
+   */
+  restore(eventId: string, id: string): Promise<Coupon>
 
   /**
    * Get count of coupons for an event

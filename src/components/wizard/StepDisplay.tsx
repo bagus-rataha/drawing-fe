@@ -43,7 +43,7 @@ export function StepDisplay({
 }: StepDisplayProps) {
   const handleChange = (
     field: keyof DisplaySettingsFormData,
-    value: string | string[]
+    value: string | string[] | number
   ) => {
     onUpdate({ ...data, [field]: value })
   }
@@ -197,6 +197,72 @@ export function StepDisplay({
               }
             )}
           </RadioGroup>
+        </CardContent>
+      </Card>
+
+      {/* Grid Configuration */}
+      <Card>
+        <CardContent className="p-4">
+          <Label className="mb-4 block text-base font-medium">
+            Winner Grid Layout
+          </Label>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Configure the grid layout for winner cards on the draw screen
+          </p>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <Label htmlFor="gridX" className="mb-2 block text-sm font-medium">
+                Columns (X)
+              </Label>
+              <Input
+                id="gridX"
+                type="number"
+                min={1}
+                max={10}
+                value={data.gridX || 5}
+                onChange={(e) => handleChange('gridX', Number(e.target.value))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Cards per row
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="gridY" className="mb-2 block text-sm font-medium">
+                Rows (Y)
+              </Label>
+              <Input
+                id="gridY"
+                type="number"
+                min={1}
+                max={10}
+                value={data.gridY || 2}
+                onChange={(e) => handleChange('gridY', Number(e.target.value))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Number of rows
+              </p>
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground mb-3">
+              Preview: {data.gridX || 5} × {data.gridY || 2} = {(data.gridX || 5) * (data.gridY || 2)} cards per page
+            </p>
+            <div
+              className="grid gap-2 border border-dashed border-border p-2 rounded-lg"
+              style={{ gridTemplateColumns: `repeat(${data.gridX || 5}, 1fr)` }}
+            >
+              {Array.from({ length: (data.gridX || 5) * (data.gridY || 2) }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-background border border-border rounded h-8"
+                />
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

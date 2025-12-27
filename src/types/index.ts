@@ -55,8 +55,9 @@ export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupo
  * Coupon status
  * - active: Available for drawing
  * - void: Cannot be drawn (already won or invalidated)
+ * - cancelled: Temporarily removed from pool (draw cancelled, can be restored)
  */
-export type CouponStatus = 'active' | 'void'
+export type CouponStatus = 'active' | 'void' | 'cancelled'
 
 /**
  * Participant status
@@ -91,6 +92,10 @@ export interface DisplaySettings {
   winnerDisplayMode: WinnerDisplayMode
   /** List of custom field keys to display on winner cards */
   customFieldsToShow: string[]
+  /** Number of columns in winner grid (default: 5) */
+  gridX: number
+  /** Number of rows in winner grid (default: 2) */
+  gridY: number
 }
 
 /**
@@ -219,7 +224,15 @@ export interface Coupon {
 }
 
 /**
- * Winner entity - represents a confirmed prize winner
+ * Winner status
+ * - valid: Winner confirmed
+ * - cancelled: Winner cancelled (can be redrawn)
+ * - skipped: Could not fill (pool exhausted)
+ */
+export type WinnerStatus = 'valid' | 'cancelled' | 'skipped'
+
+/**
+ * Winner entity - represents a prize winner (confirmed or pending)
  *
  * Stores a snapshot of participant data at the time of winning
  * to preserve history even if participant data is later modified.
@@ -239,10 +252,18 @@ export interface Winner {
   couponId: string
   /** Snapshot of custom fields at time of win */
   customFieldsSnapshot: Record<string, string>
+  /** Line number in the batch (1-indexed) */
+  lineNumber: number
   /** Batch number in which this winner was drawn */
   batchNumber: number
+  /** Current status */
+  status: WinnerStatus
+  /** Reason if cancelled */
+  cancelReason?: CancelReason
   /** Timestamp when winner was drawn */
   drawnAt: Date
+  /** Timestamp when winner was confirmed (null = pending, can redraw) */
+  confirmedAt?: Date
 }
 
 // ============================================
@@ -308,6 +329,72 @@ export interface BatchState {
 }
 
 // ============================================
+// DRAW SERVICE TYPES
+// ============================================
+
+/**
+ * Result of a single draw
+ */
+export interface DrawResult {
+  /** Line number in the batch (1-indexed) */
+  lineNumber: number
+  /** Reference to participant */
+  participantId: string
+  /** Snapshot of participant name */
+  participantName?: string
+  /** Reference to coupon */
+  couponId: string
+  /** Current status */
+  status: WinnerStatus
+  /** Reason if cancelled */
+  cancelReason?: CancelReason
+}
+
+/**
+ * Result of pre-draw validation check
+ */
+export interface PreCheckResult {
+  /** Whether draw can proceed */
+  canProceed: boolean
+  /** Reference to prize */
+  prizeId: string
+  /** Prize name for display */
+  prizeName: string
+  /** Number of winners needed */
+  requiredQuantity: number
+  /** Number of eligible coupons in pool */
+  availablePool: number
+  /** Error message if canProceed is false */
+  message?: string
+}
+
+/**
+ * Current draw progress for an event
+ */
+export interface DrawProgress {
+  /** Reference to event */
+  eventId: string
+  /** Index of current prize (0-indexed) */
+  currentPrizeIndex: number
+  /** Total number of prizes */
+  totalPrizes: number
+  /** Current prize info */
+  currentPrize: {
+    id: string
+    name: string
+    quantity: number
+    /** Total valid entries drawn */
+    drawnCount: number
+    /** Total confirmed entries */
+    confirmedCount: number
+  }
+  /** Whether there are unconfirmed winners */
+  hasUnconfirmedWinners: boolean
+  /** Whether there are cancelled winners needing redraw */
+  hasCancelledWinners: boolean
+}
+
+// ============================================
 // FORM & WIZARD TYPES
 // ============================================
 
@@ -343,6 +430,8 @@ export interface DisplaySettingsFormData {
   animationType: AnimationType
   winnerDisplayMode: WinnerDisplayMode
   customFieldsToShow: string[]
+  gridX: number
+  gridY: number
 }
 
 /**

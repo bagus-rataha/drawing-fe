@@ -248,6 +248,8 @@ export function EventWizard() {
             animationType: displaySettings.animationType,
             winnerDisplayMode: displaySettings.winnerDisplayMode,
             customFieldsToShow: displaySettings.customFieldsToShow,
+            gridX: displaySettings.gridX,
+            gridY: displaySettings.gridY,
           },
           totalPrizes: prizes.length,
           status,
@@ -340,6 +342,8 @@ export function EventWizard() {
           animationType: displaySettings.animationType,
           winnerDisplayMode: displaySettings.winnerDisplayMode,
           customFieldsToShow: displaySettings.customFieldsToShow,
+          gridX: displaySettings.gridX,
+          gridY: displaySettings.gridY,
         },
       })
 

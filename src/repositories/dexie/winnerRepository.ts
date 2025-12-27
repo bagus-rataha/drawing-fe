@@ -6,13 +6,15 @@
  * - CRUD operations for Winner entity
  * - Winner grouping by prize
  * - Win count tracking per participant
+ * - Status-based queries for draw service
  */
 
 import { db } from './db'
-import type { Winner } from '@/types'
+import type { Winner, WinnerStatus } from '@/types'
 import type {
   IWinnerRepository,
   CreateWinnerData,
+  UpdateWinnerData,
 } from '../interfaces/winnerRepository'
 import { generateId } from '@/utils/helpers'
 
@@ -83,8 +85,12 @@ export const winnerRepository: IWinnerRepository = {
       participantName: data.participantName,
       couponId: data.couponId,
       customFieldsSnapshot: data.customFieldsSnapshot,
+      lineNumber: data.lineNumber,
       batchNumber: data.batchNumber,
+      status: data.status,
+      cancelReason: data.cancelReason,
       drawnAt: new Date(),
+      confirmedAt: undefined,
     }
 
     await db.winners.add(winner)
@@ -104,12 +110,34 @@ export const winnerRepository: IWinnerRepository = {
       participantName: d.participantName,
       couponId: d.couponId,
       customFieldsSnapshot: d.customFieldsSnapshot,
+      lineNumber: d.lineNumber,
       batchNumber: d.batchNumber,
+      status: d.status,
+      cancelReason: d.cancelReason,
       drawnAt: now,
+      confirmedAt: undefined,
     }))
 
     await db.winners.bulkAdd(winners)
     return winners
+  },
+
+  /**
+   * Update a winner
+   */
+  async update(id: string, data: UpdateWinnerData): Promise<Winner> {
+    const existing = await db.winners.get(id)
+    if (!existing) {
+      throw new Error(`Winner with id ${id} not found`)
+    }
+
+    const updated: Winner = {
+      ...existing,
+      ...data,
+    }
+
+    await db.winners.put(updated)
+    return updated
   },
 
   /**
@@ -149,7 +177,7 @@ export const winnerRepository: IWinnerRepository = {
   },
 
   /**
-   * Get win count for a participant in an event
+   * Get total win count for a participant in an event (all statuses)
    */
   async getParticipantWinCount(
     eventId: string,
@@ -160,6 +188,110 @@ export const winnerRepository: IWinnerRepository = {
       .equals(eventId)
       .filter((w) => w.participantId === participantId)
       .toArray()
+    return winners.length
+  },
+
+  /**
+   * Get CONFIRMED win count for a participant (only status=valid AND confirmedAt IS NOT NULL)
+   * Used for win rule enforcement during draw
+   */
+  async getConfirmedWinCount(
+    eventId: string,
+    participantId: string
+  ): Promise<number> {
+    const winners = await db.winners
+      .where('eventId')
+      .equals(eventId)
+      .filter(
+        (w) =>
+          w.participantId === participantId &&
+          w.status === 'valid' &&
+          w.confirmedAt !== undefined
+      )
+      .toArray()
+    return winners.length
+  },
+
+  /**
+   * Get confirmed winners for a prize (status=valid AND confirmedAt IS NOT NULL)
+   */
+  async getConfirmedByPrizeId(prizeId: string): Promise<Winner[]> {
+    const winners = await db.winners
+      .where('[prizeId+status]')
+      .equals([prizeId, 'valid'])
+      .filter((w) => w.confirmedAt !== undefined)
+      .toArray()
+    return winners.sort(
+      (a, b) => new Date(a.drawnAt).getTime() - new Date(b.drawnAt).getTime()
+    )
+  },
+
+  /**
+   * Get winners by prize with status and confirmedAt filter
+   */
+  async getByPrizeIdAndStatus(
+    prizeId: string,
+    status: WinnerStatus,
+    confirmedAt?: 'null' | 'not-null'
+  ): Promise<Winner[]> {
+    let winners = await db.winners
+      .where('[prizeId+status]')
+      .equals([prizeId, status])
+      .toArray()
+
+    if (confirmedAt === 'null') {
+      winners = winners.filter((w) => w.confirmedAt === undefined)
+    } else if (confirmedAt === 'not-null') {
+      winners = winners.filter((w) => w.confirmedAt !== undefined)
+    }
+
+    return winners.sort(
+      (a, b) => new Date(a.drawnAt).getTime() - new Date(b.drawnAt).getTime()
+    )
+  },
+
+  /**
+   * Get count of valid winners for a prize (only status=valid)
+   */
+  async getValidCountByPrize(prizeId: string): Promise<number> {
+    return db.winners
+      .where('[prizeId+status]')
+      .equals([prizeId, 'valid'])
+      .count()
+  },
+
+  /**
+   * Get count of confirmed winners for a prize
+   */
+  async getConfirmedCountByPrize(prizeId: string): Promise<number> {
+    const winners = await db.winners
+      .where('[prizeId+status]')
+      .equals([prizeId, 'valid'])
+      .filter((w) => w.confirmedAt !== undefined)
+      .toArray()
+    return winners.length
+  },
+
+  /**
+   * Confirm all valid winners for a prize (set confirmedAt)
+   */
+  async confirmByPrizeId(prizeId: string): Promise<number> {
+    const now = new Date()
+    const winners = await db.winners
+      .where('[prizeId+status]')
+      .equals([prizeId, 'valid'])
+      .filter((w) => w.confirmedAt === undefined)
+      .toArray()
+
+    await db.transaction('rw', db.winners, async () => {
+      for (const winner of winners) {
+        await db.winners.put({
+          ...winner,
+          confirmedAt: now,
+        })
+      }
+    })
+
     return winners.length
   },
 }

@@ -11,7 +11,7 @@
 // ============================================
 
 /** Current database version for Dexie migrations */
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 /** Database name */
 export const DB_NAME = 'LotteryAppDB'
@@ -101,6 +101,8 @@ export const DEFAULT_DISPLAY_SETTINGS = {
   animationType: '3d-sphere' as const,
   winnerDisplayMode: 'coupon-only' as const,
   customFieldsToShow: [] as string[],
+  gridX: 5,
+  gridY: 2,
 }
 
 /** Default draw configuration */
@@ -184,4 +186,35 @@ export const EVENT_STATUS_COLORS: Record<string, string> = {
   ready: 'bg-blue-100 text-blue-800',
   in_progress: 'bg-yellow-100 text-yellow-800',
   completed: 'bg-green-100 text-green-800',
+}
+
+// ============================================
+// SPHERE 3D ANIMATION CONFIG
+// ============================================
+
+/** Configuration for the 3D sphere animation on DrawScreen */
+export const SPHERE_CONFIG = {
+  /** Number of cards displayed on sphere surface */
+  cardCount: 125,
+
+  /** Sphere radius in 3D units */
+  radius: 6,
+
+  /** Number of horizontal rows for card distribution */
+  rows: 10,
+
+  /** Card width in 3D units */
+  cardWidth: 0.9,
+
+  /** Card height in 3D units */
+  cardHeight: 1.5,
+
+  /** Card background color (hex) */
+  cardColor: '#e8b4c8',
+
+  /** Rotation speed when spinning (multiplier) */
+  spinSpeed: 8,
+
+  /** Rotation speed when idle (multiplier) */
+  idleSpeed: 0.1,
 }

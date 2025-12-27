@@ -3,10 +3,10 @@
  * @description Interface for Winner repository operations
  *
  * Defines the contract for Winner CRUD operations.
- * Winners are confirmed prize recipients.
+ * Winners are prize recipients (confirmed or pending confirmation).
  */
 
-import type { Winner } from '@/types'
+import type { Winner, WinnerStatus, CancelReason } from '@/types'
 
 /**
  * Data for creating a new winner
@@ -18,7 +18,19 @@ export interface CreateWinnerData {
   participantName?: string
   couponId: string
   customFieldsSnapshot: Record<string, string>
+  lineNumber: number
   batchNumber: number
+  status: WinnerStatus
+  cancelReason?: CancelReason
+}
+
+/**
+ * Data for updating a winner
+ */
+export interface UpdateWinnerData {
+  status?: WinnerStatus
+  cancelReason?: CancelReason
+  confirmedAt?: Date
 }
 
 /**
@@ -77,6 +89,14 @@ export interface IWinnerRepository {
   createMany(data: CreateWinnerData[]): Promise<Winner[]>
 
   /**
+   * Update a winner
+   * @param id - Winner ID
+   * @param data - Update data
+   * @returns Updated winner
+   */
+  update(id: string, data: UpdateWinnerData): Promise<Winner>
+
+  /**
    * Delete a winner
    * @param id - Winner ID
    * @returns True if deleted successfully
@@ -112,10 +132,61 @@ export interface IWinnerRepository {
   getCountByPrize(prizeId: string): Promise<number>
 
   /**
-   * Check if participant has won in this event
+   * Get total win count for participant (all statuses)
    * @param eventId - Event ID
    * @param participantId - Participant ID
    * @returns Number of wins
    */
   getParticipantWinCount(eventId: string, participantId: string): Promise<number>
+
+  /**
+   * Get CONFIRMED win count for participant (only status=valid AND confirmedAt IS NOT NULL)
+   * Used for win rule enforcement
+   * @param eventId - Event ID
+   * @param participantId - Participant ID
+   * @returns Number of confirmed wins
+   */
+  getConfirmedWinCount(eventId: string, participantId: string): Promise<number>
+
+  /**
+   * Get confirmed winners for a prize (status=valid AND confirmedAt IS NOT NULL)
+   * Used for display in prize panel
+   * @param prizeId - Prize ID
+   * @returns Array of confirmed winners
+   */
+  getConfirmedByPrizeId(prizeId: string): Promise<Winner[]>
+
+  /**
+   * Get winners by prize with status filter
+   * @param prizeId - Prize ID
+   * @param status - Winner status to filter
+   * @param confirmedAt - Filter by confirmedAt: 'null' for unconfirmed, 'not-null' for confirmed
+   * @returns Array of matching winners
+   */
+  getByPrizeIdAndStatus(
+    prizeId: string,
+    status: WinnerStatus,
+    confirmedAt?: 'null' | 'not-null'
+  ): Promise<Winner[]>
+
+  /**
+   * Get count of valid winners for a prize (only status=valid)
+   * @param prizeId - Prize ID
+   * @returns Count of valid winners
+   */
+  getValidCountByPrize(prizeId: string): Promise<number>
+
+  /**
+   * Get count of confirmed winners for a prize
+   * @param prizeId - Prize ID
+   * @returns Count of confirmed winners
+   */
+  getConfirmedCountByPrize(prizeId: string): Promise<number>
+
+  /**
+   * Confirm all valid winners for a prize (set confirmedAt)
+   * @param prizeId - Prize ID
+   * @returns Number of winners confirmed
+   */
+  confirmByPrizeId(prizeId: string): Promise<number>
 }

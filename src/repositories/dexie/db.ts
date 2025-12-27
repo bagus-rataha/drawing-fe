@@ -47,12 +47,8 @@ class LotteryDatabase extends Dexie {
     })
 
     // Version 4: Add totalPrizes to events (no index change, just data migration)
-    this.version(DB_VERSION)
+    this.version(4)
       .stores({
-        // Primary key definitions:
-        // - events, prizes, winners: use simple 'id' as globally unique
-        // - participants, coupons: use compound key [eventId+id] for per-event uniqueness
-        //   This allows same participant_id/coupon_id in different events
         events: 'id, status, createdAt, updatedAt',
         prizes: 'id, eventId, sequence',
         participants: '[eventId+id], eventId, status',
@@ -70,6 +66,35 @@ class LotteryDatabase extends Dexie {
               .equals(event.id)
               .count()
             await tx.table('events').update(event.id, { totalPrizes: prizeCount })
+          }
+        }
+      })
+
+    // Version 5: Add winner status and confirmedAt indexes for draw service
+    this.version(DB_VERSION)
+      .stores({
+        // Primary key definitions:
+        // - events, prizes, winners: use simple 'id' as globally unique
+        // - participants, coupons: use compound key [eventId+id] for per-event uniqueness
+        //   This allows same participant_id/coupon_id in different events
+        events: 'id, status, createdAt, updatedAt',
+        prizes: 'id, eventId, sequence',
+        participants: '[eventId+id], eventId, status',
+        coupons: '[eventId+id], eventId, participantId, status, [eventId+status]',
+        // Added: status, [prizeId+status] for draw service queries
+        winners: 'id, eventId, prizeId, participantId, drawnAt, status, [prizeId+status]',
+      })
+      .upgrade(async (tx) => {
+        // Migrate existing winners: set default values for new fields
+        const winners = await tx.table('winners').toArray()
+        for (const winner of winners) {
+          // Existing winners are assumed to be confirmed and valid
+          if (winner.status === undefined) {
+            await tx.table('winners').update(winner.id, {
+              status: 'valid',
+              lineNumber: winner.batchNumber || 1,
+              confirmedAt: winner.drawnAt,
+            })
           }
         }
       })

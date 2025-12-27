@@ -281,6 +281,8 @@ export const useEventStore = create<EventStoreState>()(
               animationType: event.displaySettings.animationType,
               winnerDisplayMode: event.displaySettings.winnerDisplayMode,
               customFieldsToShow: event.displaySettings.customFieldsToShow,
+              gridX: event.displaySettings.gridX ?? 5,
+              gridY: event.displaySettings.gridY ?? 2,
             },
             importStats: event.totalParticipants > 0
               ? {
