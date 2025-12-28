@@ -145,6 +145,16 @@ export interface ICouponRepository {
   void(eventId: string, id: string): Promise<Coupon>
 
   /**
+   * Void multiple coupons at once (batch operation)
+   * PERFORMANCE: Uses single transaction for all voids
+   *
+   * @param eventId - Event ID
+   * @param couponIds - Array of coupon IDs to void
+   * @returns Number of coupons voided
+   */
+  voidMany(eventId: string, couponIds: string[]): Promise<number>
+
+  /**
    * Void all coupons for a participant within an event
    * @param eventId - Event ID
    * @param participantId - Participant ID

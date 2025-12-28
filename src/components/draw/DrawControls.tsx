@@ -75,24 +75,27 @@ export function DrawControls({
         )
 
       case 'reviewing':
+        // FIX (Rev 12): Confirm button should ONLY show when ALL winners are valid
+        // If there are cancelled winners, only show Redraw All button
         return (
           <div className="flex gap-4">
-            {hasCancelled && (
+            {hasCancelled ? (
               <button
                 onClick={onRedrawAll}
                 className="px-6 py-3 bg-amber-500 text-white font-medium rounded-full
                            shadow-lg hover:bg-amber-600 transition-colors text-lg"
               >
-                Redraw All
+                Redraw All ({totalCount - validCount} cancelled)
+              </button>
+            ) : (
+              <button
+                onClick={onConfirm}
+                className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
+                           shadow-lg hover:bg-[#524acc] transition-colors text-lg"
+              >
+                Confirm {validCount} Winners
               </button>
             )}
-            <button
-              onClick={onConfirm}
-              className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
-                         shadow-lg hover:bg-[#524acc] transition-colors text-lg"
-            >
-              {validCount === totalCount ? 'Confirm' : `Confirm ${validCount} Winners`}
-            </button>
           </div>
         )
 

@@ -5,10 +5,12 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { eventRepository, prizeRepository, couponRepository, participantRepository } from '@/repositories'
 import type { Coupon, Participant } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
+import { winnerKeys } from '@/hooks/useWinners'
 import { PrizePanel } from '@/components/draw/PrizePanel'
 import { Sphere3D } from '@/components/draw/Sphere3D'
 import { WinnerGallery } from '@/components/draw/WinnerGallery'
@@ -26,6 +28,7 @@ const DEFAULT_GRID = {
 export function DrawScreen() {
   const { id: eventId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // Data state
   const [event, setEvent] = useState<Event | null>(null)
@@ -186,37 +189,46 @@ export function DrawScreen() {
     revealCompleteCalledRef.current = false
   }, [winners.length])
 
-  // Sequential reveal animation - run when in 'revealing' state
+  /**
+   * FIX (Rev 12): Optimized reveal animation
+   * - Only animate cards on the FIRST PAGE (visible cards)
+   * - Cards on other pages are revealed instantly
+   * - This reduces 50 re-renders to just 10 (cardsPerPage)
+   * - Animation completes much faster: 10 × 200ms = 2 seconds vs 50 × 200ms = 10 seconds
+   */
   useEffect(() => {
     if (state !== 'revealing' || winners.length === 0) {
       return
     }
 
-    console.log('[DrawScreen] Starting reveal animation for', winners.length, 'winners')
+    // Only animate up to cardsPerPage (first visible page)
+    const animateCount = Math.min(winners.length, cardsPerPage)
+    console.log('[DrawScreen] Starting reveal animation for', animateCount, 'visible cards (total:', winners.length, ')')
     revealCompleteCalledRef.current = false
     let currentCount = 0
 
     const revealInterval = setInterval(() => {
       currentCount++
       setRevealedCount(currentCount)
-      console.log('[DrawScreen] Revealed:', currentCount, '/', winners.length)
 
-      if (currentCount >= winners.length) {
+      if (currentCount >= animateCount) {
         clearInterval(revealInterval)
+        // Immediately reveal all remaining cards (for other pages)
+        setRevealedCount(winners.length)
 
-        // Wait for last card animation, then transition to reviewing
+        // Quick transition to reviewing state
         setTimeout(() => {
           if (!revealCompleteCalledRef.current) {
             revealCompleteCalledRef.current = true
-            console.log('[DrawScreen] All cards revealed, calling revealComplete')
+            console.log('[DrawScreen] Animation complete, calling revealComplete')
             revealComplete()
           }
-        }, 500)
+        }, 300)
       }
-    }, 200) // 200ms between each card
+    }, 150) // Faster animation: 150ms between each card
 
     return () => clearInterval(revealInterval)
-  }, [state, winners.length, revealComplete])
+  }, [state, winners.length, cardsPerPage, revealComplete])
 
   // When in reviewing state, show all cards
   const effectiveRevealedCount = state === 'reviewing' ? winners.length : revealedCount
@@ -319,6 +331,12 @@ export function DrawScreen() {
 
     try {
       await confirm(currentPrize.id)
+
+      // FIX (Rev 12): Invalidate winners cache so History page shows updated data
+      queryClient.invalidateQueries({ queryKey: winnerKeys.list(eventId) })
+      queryClient.invalidateQueries({ queryKey: winnerKeys.grouped(eventId) })
+      queryClient.invalidateQueries({ queryKey: winnerKeys.count(eventId) })
+      console.log('[DrawScreen] Winners cache invalidated')
     } catch (error) {
       // Confirm failed - likely due to cancelled winners that need redraw
       console.error('[DrawScreen] Confirm failed:', error)
@@ -358,7 +376,7 @@ export function DrawScreen() {
       // Navigate to history
       navigate(`/event/${eventId}/history`)
     }
-  }, [currentPrize, eventId, currentPrizeIndex, currentBatchIndex, prizes.length, confirm, nextPrize, nextBatch, calculateTotalDraws, navigate, state, revealComplete])
+  }, [currentPrize, eventId, currentPrizeIndex, currentBatchIndex, prizes.length, confirm, nextPrize, nextBatch, calculateTotalDraws, navigate, state, revealComplete, queryClient])
 
   // Handle prize click in panel
   const handlePrizeClick = useCallback((prizeId: string) => {

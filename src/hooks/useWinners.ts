@@ -29,6 +29,7 @@ export const winnerKeys = {
 
 /**
  * Hook to get all winners for an event
+ * FIX (Rev 12): Use staleTime: 0 to ensure fresh data on navigation
  * @param eventId - Event ID
  */
 export function useWinners(eventId: string | undefined) {
@@ -36,6 +37,8 @@ export function useWinners(eventId: string | undefined) {
     queryKey: winnerKeys.list(eventId!),
     queryFn: () => winnerRepository.getByEventId(eventId!),
     enabled: !!eventId,
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: 'always', // Refetch when component mounts
   })
 }
 
@@ -77,6 +80,7 @@ export function useWinnersByParticipant(participantId: string | undefined) {
 
 /**
  * Hook to get winners grouped by prize
+ * FIX (Rev 12): Use staleTime: 0 to ensure fresh data on navigation
  * @param eventId - Event ID
  */
 export function useWinnersGroupedByPrize(eventId: string | undefined) {
@@ -84,6 +88,8 @@ export function useWinnersGroupedByPrize(eventId: string | undefined) {
     queryKey: winnerKeys.grouped(eventId!),
     queryFn: () => winnerRepository.getGroupedByPrize(eventId!),
     enabled: !!eventId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
