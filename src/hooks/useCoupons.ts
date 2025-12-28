@@ -217,7 +217,8 @@ export function useVoidCoupon() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => couponRepository.void(id),
+    mutationFn: ({ eventId, id }: { eventId: string; id: string }) =>
+      couponRepository.void(eventId, id),
     onSuccess: (coupon) => {
       queryClient.invalidateQueries({
         queryKey: couponKeys.list(coupon.eventId),

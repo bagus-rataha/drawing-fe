@@ -25,6 +25,14 @@ interface InstancedCardsProps {
   displayMode: WinnerDisplayMode
 }
 
+/** Data structure for instance attributes - persists across re-renders */
+interface InstanceState {
+  opacities: Float32Array | null
+  uvOffsets: Float32Array | null
+  mesh: THREE.InstancedMesh | null
+  initialized: boolean
+}
+
 /**
  * Distribute cards on sphere surface using latitude rows
  * Cards are arranged in horizontal rows from south pole to north pole
@@ -93,10 +101,24 @@ export function InstancedCards({
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
 
-  // Refs for mutable data (stable references, won't cause re-renders)
-  const opacitiesRef = useRef<Float32Array>(new Float32Array(count))
-  const uvOffsetsRef = useRef<Float32Array>(new Float32Array(count * 2))
-  const isInitializedRef = useRef(false)
+  // Use ref for data that should persist across re-renders (React Strict Mode compatible)
+  // Store mesh reference here too for stable access in useFrame
+  const stateRef = useRef<InstanceState>({
+    opacities: null,
+    uvOffsets: null,
+    mesh: null,
+    initialized: false,
+  })
+
+  // Cleanup on unmount (for React Strict Mode double-mounting)
+  useEffect(() => {
+    return () => {
+      stateRef.current.initialized = false
+      stateRef.current.mesh = null
+      stateRef.current.opacities = null
+      stateRef.current.uvOffsets = null
+    }
+  }, [])
 
   // Sample coupons for atlas (stable reference)
   const atlasCoupons = useMemo(() => {
@@ -127,9 +149,6 @@ export function InstancedCards({
       cols: SPHERE_CONFIG.atlasColumns,
       cellWidth: SPHERE_CONFIG.atlasCellWidth,
       cellHeight: SPHERE_CONFIG.atlasCellHeight,
-      fontSize: 14,
-      fontFamily: 'Plus Jakarta Sans, Arial, sans-serif',
-      textColor: '#0a2540',
       bgColor: cardColor,
     })
   }, [atlasCoupons, displayMode, cardColor])
@@ -199,43 +218,57 @@ export function InstancedCards({
 
   // Initialize instance data and geometry attributes
   useEffect(() => {
-    if (!atlas || !meshRef.current || isInitializedRef.current) return
+    const mesh = meshRef.current
+    if (!atlas || !mesh || stateRef.current.initialized) return
+
+    // Create arrays
+    const opacities = new Float32Array(count)
+    const uvOffsets = new Float32Array(count * 2)
 
     // Initialize opacities and UV offsets
     for (let i = 0; i < count; i++) {
-      opacitiesRef.current[i] = 0.4 + Math.random() * 0.5
+      opacities[i] = 0.4 + Math.random() * 0.5
 
       // Random UV offset pointing to a random coupon in atlas
       const couponIndex = Math.floor(Math.random() * atlasCoupons.length)
       const col = couponIndex % atlas.cols
       const row = Math.floor(couponIndex / atlas.cols)
 
-      uvOffsetsRef.current[i * 2] = col * atlas.cellUVWidth
-      uvOffsetsRef.current[i * 2 + 1] = row * atlas.cellUVHeight
+      uvOffsets[i * 2] = col * atlas.cellUVWidth
+      uvOffsets[i * 2 + 1] = row * atlas.cellUVHeight
     }
 
+    // Store in stateRef for stable access in useFrame
+    stateRef.current.opacities = opacities
+    stateRef.current.uvOffsets = uvOffsets
+    stateRef.current.mesh = mesh
+
     // Set geometry attributes
-    geometry.setAttribute('instanceOpacity', new THREE.InstancedBufferAttribute(opacitiesRef.current, 1))
-    geometry.setAttribute('instanceUvOffset', new THREE.InstancedBufferAttribute(uvOffsetsRef.current, 2))
+    geometry.setAttribute('instanceOpacity', new THREE.InstancedBufferAttribute(opacities, 1))
+    geometry.setAttribute('instanceUvOffset', new THREE.InstancedBufferAttribute(uvOffsets, 2))
 
     // Set card positions - cards face outward from center
     positions.forEach((pos, i) => {
       dummy.position.set(pos.x, pos.y, pos.z)
       dummy.lookAt(0, 0, 0)
+      // Rotate 180° on Y axis so text faces outward (not toward center)
+      dummy.rotateY(Math.PI)
       dummy.updateMatrix()
-      meshRef.current!.setMatrixAt(i, dummy.matrix)
+      mesh.setMatrixAt(i, dummy.matrix)
     })
 
-    meshRef.current.instanceMatrix.needsUpdate = true
-    isInitializedRef.current = true
+    mesh.instanceMatrix.needsUpdate = true
+    stateRef.current.initialized = true
   }, [atlas, count, positions, geometry, dummy, atlasCoupons])
 
   // Animate: random opacity + UV offset changes
+  // Use stateRef for stable access - avoids stale closure issues
   useFrame(() => {
-    if (!meshRef.current || !atlas || !isInitializedRef.current) return
+    const { initialized, opacities, uvOffsets, mesh } = stateRef.current
+    if (!initialized || !opacities || !uvOffsets || !mesh || !atlas) return
 
-    const opacityAttr = meshRef.current.geometry.attributes.instanceOpacity as THREE.BufferAttribute
-    const uvOffsetAttr = meshRef.current.geometry.attributes.instanceUvOffset as THREE.BufferAttribute
+    const opacityAttr = mesh.geometry.attributes.instanceOpacity as THREE.BufferAttribute
+    const uvOffsetAttr = mesh.geometry.attributes.instanceUvOffset as THREE.BufferAttribute
 
     if (!opacityAttr || !uvOffsetAttr) return
 
@@ -246,15 +279,15 @@ export function InstancedCards({
       const randomIndex = Math.floor(Math.random() * count)
 
       // New opacity
-      opacitiesRef.current[randomIndex] = 0.4 + Math.random() * 0.5
+      opacities[randomIndex] = 0.4 + Math.random() * 0.5
 
       // New UV offset (new random coupon) - sync with opacity change
       const newCouponIndex = Math.floor(Math.random() * atlasCoupons.length)
       const col = newCouponIndex % atlas.cols
       const row = Math.floor(newCouponIndex / atlas.cols)
 
-      uvOffsetsRef.current[randomIndex * 2] = col * atlas.cellUVWidth
-      uvOffsetsRef.current[randomIndex * 2 + 1] = row * atlas.cellUVHeight
+      uvOffsets[randomIndex * 2] = col * atlas.cellUVWidth
+      uvOffsets[randomIndex * 2 + 1] = row * atlas.cellUVHeight
     }
 
     opacityAttr.needsUpdate = true
@@ -266,7 +299,7 @@ export function InstancedCards({
     return null
   }
 
-  return <instancedMesh ref={meshRef} args={[geometry, material, count]} />
+  return <instancedMesh ref={meshRef} args={[geometry, material, count]} frustumCulled={false} />
 }
 
 export default InstancedCards

@@ -249,4 +249,29 @@ export const SPHERE_CONFIG = {
 
   /** Percentage of cards to update per frame (0.02 = 2%) */
   updatePercentPerFrame: 0.02,
+
+  // ============================================
+  // FONT SETTINGS
+  // ============================================
+
+  /** Font settings for card text */
+  fontSettings: {
+    /** Primary text color (name/participant ID) */
+    primaryColor: '#0a2540',
+
+    /** Secondary text color (coupon ID) */
+    secondaryColor: '#64748b',
+
+    /** Font family */
+    family: 'Plus Jakarta Sans, Arial, sans-serif',
+
+    /** Font size for primary text */
+    primarySize: 16,
+
+    /** Font size for secondary text */
+    secondarySize: 12,
+
+    /** Font weight for primary text */
+    primaryWeight: 'bold' as const,
+  },
 }

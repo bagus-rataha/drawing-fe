@@ -3,12 +3,12 @@
  * @description Main draw screen with 3D sphere animation and overlay winner cards
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { eventRepository, prizeRepository, couponRepository, participantRepository } from '@/repositories'
 import type { Coupon, Participant } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
-import { DrawHeader } from '@/components/draw/DrawHeader'
 import { PrizePanel } from '@/components/draw/PrizePanel'
 import { Sphere3D } from '@/components/draw/Sphere3D'
 import { WinnerGallery } from '@/components/draw/WinnerGallery'
@@ -39,30 +39,38 @@ export function DrawScreen() {
   const [selectedPrizeForModal, setSelectedPrizeForModal] = useState<Prize | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  // Draw state
+  // Reveal animation state - controlled here, shared with both rows
+  const [revealedCount, setRevealedCount] = useState(0)
+  const revealCompleteCalledRef = useRef(false)
+
+  // Draw state - using simplified state machine
   const drawState = useDrawState()
   const {
     state,
     currentPrizeIndex,
+    currentBatchIndex,
     winners,
     currentPage,
     isSpinning,
+    isIdle,
     hasCancelled,
     validCount,
+    init,
     start,
     stop,
+    revealComplete,
     cancel,
     redrawAll,
     confirm,
     nextPrize,
+    nextBatch,
     setCurrentPage,
+    calculateTotalDraws,
+    getDrawQuantity,
   } = drawState
 
   const currentPrize = prizes[currentPrizeIndex] || null
   const displayMode: WinnerDisplayMode = event?.displaySettings?.winnerDisplayMode || 'coupon-participant-name'
-
-  // Derive isIdle for sphere rotation
-  const isIdle = state === 'idle'
 
   // Grid config from event settings
   const gridX = event?.displaySettings?.gridX || DEFAULT_GRID.gridX
@@ -115,26 +123,162 @@ export function DrawScreen() {
     loadData()
   }, [eventId])
 
+  // Initialize draw progress from loaded data
+  // This calculates the correct prize index and batch index based on existing progress
+  useEffect(() => {
+    if (loading || prizes.length === 0) return
+
+    // Find current prize (first one not fully drawn)
+    let prizeIndex = 0
+    for (let i = 0; i < prizes.length; i++) {
+      const prize = prizes[i]
+      if (prize.drawnCount < prize.quantity) {
+        prizeIndex = i
+        break
+      }
+      // If all prizes complete, stay on last one
+      if (i === prizes.length - 1) {
+        prizeIndex = i
+      }
+    }
+
+    // Calculate batch index based on drawnCount
+    const currentPrize = prizes[prizeIndex]
+    let batchIndex = 0
+
+    if (currentPrize && currentPrize.drawnCount > 0) {
+      switch (currentPrize.drawConfig.mode) {
+        case 'one-by-one':
+          // Each draw = 1 winner, so batchIndex = drawnCount
+          batchIndex = currentPrize.drawnCount
+          break
+        case 'batch': {
+          // Calculate which batch we're on based on drawnCount
+          const batches = currentPrize.drawConfig.batches || []
+          let accumulated = 0
+          for (let i = 0; i < batches.length; i++) {
+            accumulated += batches[i]
+            if (accumulated > currentPrize.drawnCount) {
+              batchIndex = i
+              break
+            }
+            if (accumulated === currentPrize.drawnCount) {
+              batchIndex = i + 1 // Completed this batch, move to next
+              break
+            }
+          }
+          break
+        }
+        case 'all-at-once':
+          // Only 1 batch, if drawnCount > 0, we're done
+          batchIndex = currentPrize.drawnCount > 0 ? 1 : 0
+          break
+      }
+    }
+
+    console.log('[DrawScreen] Initializing progress:', { prizeIndex, batchIndex, drawnCount: currentPrize?.drawnCount })
+    init(prizeIndex, batchIndex)
+  }, [loading, prizes, init])
+
+  // Reset reveal state when winners change
+  useEffect(() => {
+    setRevealedCount(0)
+    revealCompleteCalledRef.current = false
+  }, [winners.length])
+
+  // Sequential reveal animation - run when in 'revealing' state
+  useEffect(() => {
+    if (state !== 'revealing' || winners.length === 0) {
+      return
+    }
+
+    console.log('[DrawScreen] Starting reveal animation for', winners.length, 'winners')
+    revealCompleteCalledRef.current = false
+    let currentCount = 0
+
+    const revealInterval = setInterval(() => {
+      currentCount++
+      setRevealedCount(currentCount)
+      console.log('[DrawScreen] Revealed:', currentCount, '/', winners.length)
+
+      if (currentCount >= winners.length) {
+        clearInterval(revealInterval)
+
+        // Wait for last card animation, then transition to reviewing
+        setTimeout(() => {
+          if (!revealCompleteCalledRef.current) {
+            revealCompleteCalledRef.current = true
+            console.log('[DrawScreen] All cards revealed, calling revealComplete')
+            revealComplete()
+          }
+        }, 500)
+      }
+    }, 200) // 200ms between each card
+
+    return () => clearInterval(revealInterval)
+  }, [state, winners.length, revealComplete])
+
+  // When in reviewing state, show all cards
+  const effectiveRevealedCount = state === 'reviewing' ? winners.length : revealedCount
+
+  // Calculate progress text based on draw mode
+  const getProgressText = useCallback(() => {
+    if (!currentPrize) return ''
+
+    const totalDraws = calculateTotalDraws(currentPrize)
+
+    switch (currentPrize.drawConfig.mode) {
+      case 'one-by-one':
+        return `Draw ${currentBatchIndex + 1}/${totalDraws}`
+      case 'batch':
+        return `Batch ${currentBatchIndex + 1}/${totalDraws}`
+      case 'all-at-once':
+        return `Drawing ${currentPrize.quantity - currentPrize.drawnCount} winners`
+      default:
+        return ''
+    }
+  }, [currentPrize, currentBatchIndex, calculateTotalDraws])
+
+  // Handle back navigation - go to event detail, not wizard
+  const handleBack = useCallback(() => {
+    if (eventId) {
+      navigate(`/event/${eventId}`)
+    } else {
+      navigate('/')
+    }
+  }, [navigate, eventId])
+
   // Handle start draw
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
+    console.log('[DrawScreen] handleStart called, state:', state)
+    // Update event status to 'in_progress' if still draft or ready
+    if (event && (event.status === 'draft' || event.status === 'ready')) {
+      try {
+        await eventRepository.update(eventId!, { status: 'in_progress' })
+        setEvent({ ...event, status: 'in_progress' })
+      } catch (error) {
+        console.error('[DrawScreen] Failed to update event status:', error)
+      }
+    }
     start()
-  }, [start])
+  }, [event, eventId, start, state])
 
   // Handle stop and draw
   const handleStop = useCallback(async () => {
+    console.log('[DrawScreen] handleStop called, state:', state)
     if (!eventId || !currentPrize) return
 
-    // Calculate how many to draw
-    const remainingQuantity = currentPrize.quantity - currentPrize.drawnCount
+    // Calculate how many to draw based on draw mode
+    const drawQuantity = getDrawQuantity(currentPrize)
 
-    await stop(eventId, currentPrize.id, remainingQuantity)
+    await stop(eventId, currentPrize.id, drawQuantity)
 
-    // Trigger confetti after animation
+    // Trigger confetti after revealing starts
     setTimeout(() => {
       fireConfettiBurst()
       setShowConfetti(true)
-    }, 2500)
-  }, [eventId, currentPrize, stop])
+    }, 1000)
+  }, [eventId, currentPrize, stop, getDrawQuantity, state])
 
   // Handle cancel winner
   const handleCancel = useCallback(
@@ -151,23 +295,70 @@ export function DrawScreen() {
   }, [currentPrize, redrawAll])
 
   // Handle confirm
+  // FIX (Rev 11): Accept both 'revealing' and 'reviewing' states
+  // If still revealing, force transition first to avoid 2-click issue
   const handleConfirm = useCallback(async () => {
+    console.log('[DrawScreen] handleConfirm called, state:', state)
+
+    // Accept both 'revealing' and 'reviewing' states
+    if (!['revealing', 'reviewing'].includes(state)) {
+      console.warn('[DrawScreen] handleConfirm blocked - invalid state:', state)
+      return
+    }
+
+    // Force transition if still revealing
+    if (state === 'revealing') {
+      console.log('[DrawScreen] Force transition from revealing to reviewing')
+      revealCompleteCalledRef.current = true
+      revealComplete()
+      // Small delay for state update
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
     if (!currentPrize || !eventId) return
 
-    await confirm(currentPrize.id)
+    try {
+      await confirm(currentPrize.id)
+    } catch (error) {
+      // Confirm failed - likely due to cancelled winners that need redraw
+      console.error('[DrawScreen] Confirm failed:', error)
+      // Don't proceed with state transitions if confirm failed
+      return
+    }
 
-    // Refresh prize data
+    // Refresh prize data to get updated drawnCount
     const updatedPrizes = await prizeRepository.getByEventId(eventId)
     setPrizes(updatedPrizes)
 
-    // Check if more prizes
+    // Get the updated prize
+    const updatedPrize = updatedPrizes.find((p) => p.id === currentPrize.id)
+
+    // Check if this prize needs more draws
+    if (updatedPrize) {
+      const totalDraws = calculateTotalDraws(updatedPrize)
+      const hasMoreDraws = currentBatchIndex + 1 < totalDraws
+
+      if (hasMoreDraws) {
+        // More draws needed for this prize
+        nextBatch()
+        return
+      }
+    }
+
+    // Prize is complete, check if more prizes
     if (currentPrizeIndex < prizes.length - 1) {
       nextPrize()
     } else {
-      // All done
+      // All prizes complete - update event status to 'completed'
+      try {
+        await eventRepository.update(eventId, { status: 'completed' })
+      } catch (error) {
+        console.error('[DrawScreen] Failed to update event status:', error)
+      }
+      // Navigate to history
       navigate(`/event/${eventId}/history`)
     }
-  }, [currentPrize, eventId, currentPrizeIndex, prizes.length, confirm, nextPrize, navigate])
+  }, [currentPrize, eventId, currentPrizeIndex, currentBatchIndex, prizes.length, confirm, nextPrize, nextBatch, calculateTotalDraws, navigate, state, revealComplete])
 
   // Handle prize click in panel
   const handlePrizeClick = useCallback((prizeId: string) => {
@@ -176,6 +367,9 @@ export function DrawScreen() {
       setSelectedPrizeForModal(prize)
     }
   }, [prizes])
+
+  // Computed: should show winner cards
+  const showWinners = state === 'revealing' || state === 'reviewing'
 
   if (loading) {
     return (
@@ -201,6 +395,24 @@ export function DrawScreen() {
       {/* Confetti */}
       <Confetti trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
 
+      {/* Floating Back Button - top left */}
+      <button
+        onClick={handleBack}
+        className="fixed top-4 left-4 z-50 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-[#e2e8f0] hover:bg-white transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5 text-[#64748b]" />
+      </button>
+
+      {/* Floating Drawing Progress - top center */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+        <div className="px-6 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-[#e2e8f0]">
+          <p className="text-sm font-medium text-[#0a2540] text-center">
+            Drawing: <span className="text-[#635bff]">{currentPrize?.name || 'Loading...'}</span>
+          </p>
+          <p className="text-xs text-center text-[#64748b]">{getProgressText()}</p>
+        </div>
+      </div>
+
       {/* Floating Prize Panel */}
       <PrizePanel
         isOpen={isPanelOpen}
@@ -208,14 +420,6 @@ export function DrawScreen() {
         prizes={prizes}
         currentPrizeIndex={currentPrizeIndex}
         onPrizeClick={handlePrizeClick}
-      />
-
-      {/* Header */}
-      <DrawHeader
-        event={event}
-        currentPrize={currentPrize}
-        currentPrizeIndex={currentPrizeIndex}
-        totalPrizes={prizes.length}
       />
 
       {/* Main Content - Full viewport for sphere */}
@@ -231,36 +435,38 @@ export function DrawScreen() {
         </div>
 
         {/* Winner Cards Layer - Overlay (centered, no gap) */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 pointer-events-none">
-          {/* Top Row */}
-          <WinnerGallery
-            row="top"
-            winners={winners}
-            displayMode={displayMode}
-            gridX={gridX}
-            gridY={gridY}
-            currentPage={currentPage}
-            onCancel={handleCancel}
-            showAnimation={state === 'animating' || state === 'reviewing'}
-          />
+        {showWinners && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 pointer-events-none">
+            {/* Top Row */}
+            <WinnerGallery
+              row="top"
+              winners={winners}
+              displayMode={displayMode}
+              gridX={gridX}
+              gridY={gridY}
+              currentPage={currentPage}
+              onCancel={handleCancel}
+              revealedCount={effectiveRevealedCount}
+            />
 
-          {/* Bottom Row */}
-          <WinnerGallery
-            row="bottom"
-            winners={winners}
-            displayMode={displayMode}
-            gridX={gridX}
-            gridY={gridY}
-            currentPage={currentPage}
-            onCancel={handleCancel}
-            showAnimation={state === 'animating' || state === 'reviewing'}
-          />
-        </div>
+            {/* Bottom Row */}
+            <WinnerGallery
+              row="bottom"
+              winners={winners}
+              displayMode={displayMode}
+              gridX={gridX}
+              gridY={gridY}
+              currentPage={currentPage}
+              onCancel={handleCancel}
+              revealedCount={effectiveRevealedCount}
+            />
+          </div>
+        )}
       </div>
 
       {/* Floating Controls */}
       <DrawControls
-        state={state}
+        status={state}
         onStart={handleStart}
         onStop={handleStop}
         onRedrawAll={handleRedrawAll}

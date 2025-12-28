@@ -1,13 +1,13 @@
 /**
  * @file components/draw/DrawControls.tsx
- * @description Floating control buttons for draw screen (Start/Stop/Redraw/Confirm)
+ * @description Floating control buttons for draw screen with clean switch-based rendering
  */
 
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DrawState } from '@/hooks/useDrawState'
 
 interface DrawControlsProps {
-  state: DrawState
+  status: DrawState
   onStart: () => void
   onStop: () => void
   onRedrawAll: () => void
@@ -21,7 +21,7 @@ interface DrawControlsProps {
 }
 
 export function DrawControls({
-  state,
+  status,
   onStart,
   onStop,
   onRedrawAll,
@@ -33,7 +33,73 @@ export function DrawControls({
   totalPages,
   onPageChange,
 }: DrawControlsProps) {
-  const showPagination = state === 'reviewing' && totalPages > 1
+  const showPagination = status === 'reviewing' && totalPages > 1
+
+  // Single source of truth for what button to render
+  const renderButton = () => {
+    switch (status) {
+      case 'idle':
+        return (
+          <button
+            onClick={onStart}
+            className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
+                       shadow-lg hover:bg-[#524acc] transition-colors text-lg"
+          >
+            Start Draw
+          </button>
+        )
+
+      case 'spinning':
+        return (
+          <button
+            onClick={onStop}
+            className="px-8 py-3 bg-red-500 text-white font-medium rounded-full
+                       shadow-lg hover:bg-red-600 transition-colors text-lg"
+          >
+            Stop
+          </button>
+        )
+
+      case 'drawing':
+        return (
+          <div className="px-8 py-3 bg-gray-400 text-white font-medium rounded-full shadow-lg cursor-not-allowed text-lg">
+            Drawing...
+          </div>
+        )
+
+      case 'revealing':
+        return (
+          <div className="px-8 py-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg text-[#64748b] font-medium text-lg">
+            Revealing...
+          </div>
+        )
+
+      case 'reviewing':
+        return (
+          <div className="flex gap-4">
+            {hasCancelled && (
+              <button
+                onClick={onRedrawAll}
+                className="px-6 py-3 bg-amber-500 text-white font-medium rounded-full
+                           shadow-lg hover:bg-amber-600 transition-colors text-lg"
+              >
+                Redraw All
+              </button>
+            )}
+            <button
+              onClick={onConfirm}
+              className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
+                         shadow-lg hover:bg-[#524acc] transition-colors text-lg"
+            >
+              {validCount === totalCount ? 'Confirm' : `Confirm ${validCount} Winners`}
+            </button>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-4">
@@ -62,66 +128,8 @@ export function DrawControls({
         </div>
       )}
 
-      {/* Action Buttons - floating */}
-      <div className="flex gap-4">
-        {state === 'idle' && (
-          <button
-            onClick={onStart}
-            className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
-                       shadow-lg hover:bg-[#524acc] transition-colors text-lg"
-          >
-            Start Draw
-          </button>
-        )}
-
-        {(state === 'spinning' || state === 'stopping') && (
-          <button
-            onClick={onStop}
-            disabled={state === 'stopping'}
-            className="px-8 py-3 bg-red-500 text-white font-medium rounded-full
-                       shadow-lg hover:bg-red-600 transition-colors text-lg
-                       disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {state === 'stopping' ? 'Drawing...' : 'Stop'}
-          </button>
-        )}
-
-        {state === 'animating' && (
-          <div className="px-8 py-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg text-[#64748b] font-medium text-lg">
-            Revealing winners...
-          </div>
-        )}
-
-        {state === 'reviewing' && (
-          <>
-            {hasCancelled ? (
-              <button
-                onClick={onRedrawAll}
-                className="px-8 py-3 bg-amber-500 text-white font-medium rounded-full
-                           shadow-lg hover:bg-amber-600 transition-colors text-lg"
-              >
-                Redraw All
-              </button>
-            ) : (
-              <button
-                onClick={onConfirm}
-                className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
-                           shadow-lg hover:bg-[#524acc] transition-colors text-lg"
-              >
-                {validCount === totalCount
-                  ? 'Confirm'
-                  : `Confirm ${validCount} Winners`}
-              </button>
-            )}
-          </>
-        )}
-
-        {state === 'redrawing' && (
-          <div className="px-8 py-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg text-[#64748b] font-medium text-lg">
-            Redrawing...
-          </div>
-        )}
-      </div>
+      {/* Action Button */}
+      {renderButton()}
     </div>
   )
 }

@@ -78,6 +78,11 @@ export interface IDrawService {
 
 /**
  * Validate a winner against win rules
+ *
+ * FIXED (Rev 11): Properly considers win rules when checking duplicates
+ * - Count how many times participant already appears in batch
+ * - Add confirmed wins from database
+ * - Check against win rule limit
  */
 async function validateWinner(
   participantId: string,
@@ -85,59 +90,58 @@ async function validateWinner(
   winRule: WinRule,
   currentBatchParticipantIds: string[]
 ): Promise<{ valid: boolean; reason?: CancelReason }> {
-  // Check duplicate in same batch
-  const duplicateIndex = currentBatchParticipantIds.indexOf(participantId)
-  if (duplicateIndex !== -1) {
-    return {
-      valid: false,
-      reason: {
-        type: 'auto',
-        ruleType: winRule.type,
-        message: 'Sudah muncul di line sebelumnya dalam batch ini',
-        conflictingLines: [duplicateIndex + 1],
-      },
-    }
-  }
+  // Count how many times participant already appears in this batch
+  const countInBatch = currentBatchParticipantIds.filter(
+    (id) => id === participantId
+  ).length
 
-  // Unlimited: always valid (no need to check existing wins)
-  if (winRule.type === 'unlimited') {
-    return { valid: true }
-  }
-
-  // Check existing CONFIRMED wins
-  const existingWins = await winnerRepository.getConfirmedWinCount(
+  // Get existing CONFIRMED wins from database
+  const confirmedWins = await winnerRepository.getConfirmedWinCount(
     eventId,
     participantId
   )
 
-  if (winRule.type === 'one-time' && existingWins >= 1) {
-    return {
-      valid: false,
-      reason: {
-        type: 'auto',
-        ruleType: 'one-time',
-        message: `Sudah menang ${existingWins}x sebelumnya`,
-        totalWins: existingWins,
-        maxAllowed: 1,
-      },
-    }
-  }
+  // Total wins = confirmed + already in this batch
+  const totalWins = confirmedWins + countInBatch
 
-  if (
-    winRule.type === 'limited' &&
-    winRule.maxWins !== undefined &&
-    existingWins >= winRule.maxWins
-  ) {
-    return {
-      valid: false,
-      reason: {
-        type: 'auto',
-        ruleType: 'limited',
-        message: `Sudah menang ${existingWins}/${winRule.maxWins} kali (max tercapai)`,
-        totalWins: existingWins,
-        maxAllowed: winRule.maxWins,
-      },
+  switch (winRule.type) {
+    case 'one-time':
+      // Only allowed 1 win total
+      if (totalWins >= 1) {
+        return {
+          valid: false,
+          reason: {
+            type: 'auto',
+            ruleType: 'one-time',
+            message: `Sudah menang ${totalWins}x (max: 1x)`,
+            totalWins,
+            maxAllowed: 1,
+          },
+        }
+      }
+      break
+
+    case 'limited': {
+      // Allowed up to maxWins
+      const maxWins = winRule.maxWins || 1
+      if (totalWins >= maxWins) {
+        return {
+          valid: false,
+          reason: {
+            type: 'auto',
+            ruleType: 'limited',
+            message: `Sudah menang ${totalWins}x (max: ${maxWins}x)`,
+            totalWins,
+            maxAllowed: maxWins,
+          },
+        }
+      }
+      break
     }
+
+    case 'unlimited':
+      // No restriction, always valid
+      break
   }
 
   return { valid: true }
@@ -180,8 +184,11 @@ function weightedRandomSelect(coupons: Coupon[], count: number): Coupon[] {
 }
 
 /**
- * Void coupons for a confirmed winner according to win rules
+ * Void additional coupons for a confirmed winner according to win rules
  * Private helper function
+ *
+ * NOTE: The winning coupon is already voided at draw time.
+ * This function handles additional voiding for win rules (e.g., one-time voids all)
  */
 async function voidCouponsForWinner(
   winnerId: string,
@@ -195,13 +202,12 @@ async function voidCouponsForWinner(
 
   switch (winRule.type) {
     case 'one-time':
-      // Void ALL coupons for this participant
+      // Void ALL coupons for this participant (winning coupon already voided)
       await couponRepository.voidByParticipantId(eventId, winner.participantId)
       break
 
-    case 'limited':
-      // Void the winning coupon
-      await couponRepository.void(winner.couponId)
+    case 'limited': {
+      // Winning coupon already voided at draw time
       // Check if participant reached max wins
       const winCount = await winnerRepository.getConfirmedWinCount(
         eventId,
@@ -212,10 +218,10 @@ async function voidCouponsForWinner(
         await couponRepository.voidByParticipantId(eventId, winner.participantId)
       }
       break
+    }
 
     case 'unlimited':
-      // Void ONLY the winning coupon
-      await couponRepository.void(winner.couponId)
+      // Winning coupon already voided at draw time, nothing more to do
       break
   }
 }
@@ -285,6 +291,12 @@ export const drawService: IDrawService = {
     quantity: number,
     batchNumber: number
   ): Promise<DrawResult[]> {
+    console.log('=== DRAW SERVICE START ===')
+    console.log('[Draw] eventId:', eventId)
+    console.log('[Draw] prizeId:', prizeId)
+    console.log('[Draw] quantity:', quantity)
+    console.log('[Draw] batchNumber:', batchNumber)
+
     const event = await eventRepository.getById(eventId)
     if (!event) {
       throw new Error(`Event with id ${eventId} not found`)
@@ -292,7 +304,10 @@ export const drawService: IDrawService = {
 
     // Get active coupons (pool)
     const activeCoupons = await couponRepository.getActive(eventId)
+    console.log('[Draw] Active coupons count:', activeCoupons.length)
+
     if (activeCoupons.length === 0) {
+      console.warn('[Draw] NO ACTIVE COUPONS! Pool is empty.')
       return []
     }
 
@@ -336,13 +351,16 @@ export const drawService: IDrawService = {
         cancelReason: validation.reason,
       })
 
-      // Cancel coupon if auto-cancelled
-      if (!validation.valid) {
-        await couponRepository.cancel(eventId, coupon.id)
-      }
+      // CRITICAL FIX (Rev 11): Void coupon for ALL results (valid OR invalid)
+      // Once a coupon is drawn, it's out of the pool forever
+      // This follows the absolute rule: once out = out forever
+      await couponRepository.void(eventId, coupon.id)
 
       // Add to current batch tracking (for duplicate detection)
-      currentBatchParticipantIds.push(coupon.participantId)
+      // Only add if valid, so same participant can appear again if rule allows
+      if (validation.valid) {
+        currentBatchParticipantIds.push(coupon.participantId)
+      }
 
       results.push({
         lineNumber,
@@ -359,6 +377,10 @@ export const drawService: IDrawService = {
 
   /**
    * Manual cancel a winner
+   *
+   * NOTE (Rev 11): Coupon is already voided at draw time.
+   * Manual cancel only updates winner.status, coupon stays 'void'.
+   * This follows the absolute rule: once out of pool = out forever.
    */
   async cancel(winnerId: string): Promise<void> {
     const winner = await winnerRepository.getById(winnerId)
@@ -370,7 +392,8 @@ export const drawService: IDrawService = {
       throw new Error('Cannot cancel a confirmed winner')
     }
 
-    // Update winner status
+    // Update winner status only
+    // Coupon is already voided at draw time, it stays void
     await winnerRepository.update(winnerId, {
       status: 'cancelled',
       cancelReason: {
@@ -378,26 +401,31 @@ export const drawService: IDrawService = {
         message: 'Dibatalkan oleh admin',
       },
     })
-
-    // Cancel the coupon
-    const event = await eventRepository.getById(winner.eventId)
-    if (event) {
-      await couponRepository.cancel(event.id, winner.couponId)
-    }
   },
 
   /**
    * Redraw all cancelled winners in current session
+   *
+   * FIXED (Rev 11):
+   * - NO RESTORE of cancelled coupons (absolute rule: once out = out forever)
+   * - Draw NEW coupons from pool
+   * - Void new coupons immediately (valid OR invalid)
    */
   async redrawAll(prizeId: string, batchNumber: number): Promise<DrawResult[]> {
+    console.log('=== REDRAW ALL START ===')
+    console.log('[RedrawAll] prizeId:', prizeId)
+    console.log('[RedrawAll] batchNumber:', batchNumber)
+
     // Get cancelled winners that are unconfirmed (current session)
     const cancelledWinners = await winnerRepository.getByPrizeIdAndStatus(
       prizeId,
       'cancelled',
       'null' // only unconfirmed
     )
+    console.log('[RedrawAll] Cancelled winners count:', cancelledWinners.length)
 
     if (cancelledWinners.length === 0) {
+      console.log('[RedrawAll] No cancelled winners, returning empty')
       return []
     }
 
@@ -411,6 +439,9 @@ export const drawService: IDrawService = {
       throw new Error(`Event for prize ${prizeId} not found`)
     }
 
+    // NOTE (Rev 11): NO RESTORE! Cancelled coupons stay voided forever.
+    // We draw NEW coupons from the active pool instead.
+
     // Get current valid winners in this session (for duplicate detection)
     const validWinners = await winnerRepository.getByPrizeIdAndStatus(
       prizeId,
@@ -418,18 +449,26 @@ export const drawService: IDrawService = {
       'null' // only unconfirmed (current session)
     )
     const currentBatchParticipantIds = validWinners.map((w) => w.participantId)
+    console.log('[RedrawAll] Valid winners in session:', validWinners.length)
+    console.log('[RedrawAll] Current batch participant IDs:', currentBatchParticipantIds.length)
 
-    // Get active coupons (pool) - excluding coupons from valid winners
+    // Get active coupons (pool) - these are fresh coupons not yet drawn
     const activeCoupons = await couponRepository.getActive(event.id)
-    const validCouponIds = new Set(validWinners.map((w) => w.couponId))
-    const eligibleCoupons = activeCoupons.filter(
-      (c) => !validCouponIds.has(c.id)
-    )
+    console.log('[RedrawAll] Active coupons in pool:', activeCoupons.length)
+
+    // Use activeCoupons directly as eligible (no filtering needed since
+    // coupons of valid winners are already voided)
+    const eligibleCoupons = [...activeCoupons]
+    console.log('[RedrawAll] Eligible coupons:', eligibleCoupons.length)
 
     const results: DrawResult[] = []
 
     for (const cancelledWinner of cancelledWinners) {
       const lineNumber = cancelledWinner.lineNumber
+
+      // Delete old cancelled winner entry first
+      console.log('[RedrawAll] Deleting old cancelled winner:', cancelledWinner.id)
+      await winnerRepository.delete(cancelledWinner.id)
 
       // Try to find a replacement
       if (eligibleCoupons.length === 0) {
@@ -466,7 +505,6 @@ export const drawService: IDrawService = {
       // Weighted random selection for this slot
       const selected = weightedRandomSelect(eligibleCoupons, 1)
       if (selected.length === 0) {
-        // Should not happen, but handle gracefully
         continue
       }
 
@@ -488,7 +526,7 @@ export const drawService: IDrawService = {
 
       const status = validation.valid ? 'valid' : 'cancelled'
 
-      // Create new winner entry (old entry stays for audit)
+      // Create new winner entry
       await winnerRepository.create({
         eventId: event.id,
         prizeId,
@@ -502,12 +540,11 @@ export const drawService: IDrawService = {
         cancelReason: validation.reason,
       })
 
-      // Cancel coupon if auto-cancelled
-      if (!validation.valid) {
-        await couponRepository.cancel(event.id, coupon.id)
-      }
+      // CRITICAL (Rev 11): Void coupon for ALL results (valid OR invalid)
+      // Once drawn, it's out of the pool forever
+      await couponRepository.void(event.id, coupon.id)
 
-      // Remove from eligible pool
+      // Remove from eligible pool for this redraw batch
       const couponIndex = eligibleCoupons.findIndex((c) => c.id === coupon.id)
       if (couponIndex !== -1) {
         eligibleCoupons.splice(couponIndex, 1)
@@ -527,6 +564,11 @@ export const drawService: IDrawService = {
         cancelReason: validation.reason,
       })
     }
+
+    console.log('[RedrawAll] Results:', results.length)
+    console.log('[RedrawAll] Valid results:', results.filter(r => r.status === 'valid').length)
+    console.log('[RedrawAll] Cancelled results:', results.filter(r => r.status === 'cancelled').length)
+    console.log('=== REDRAW ALL END ===')
 
     return results
   },

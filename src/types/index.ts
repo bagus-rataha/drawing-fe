@@ -54,10 +54,13 @@ export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupo
 /**
  * Coupon status
  * - active: Available for drawing
- * - void: Cannot be drawn (already won or invalidated)
- * - cancelled: Temporarily removed from pool (draw cancelled, can be restored)
+ * - void: Permanently removed from pool (drawn, cannot return)
+ *
+ * ATURAN ABSOLUT:
+ * - Coupon yang sudah 'void' TIDAK BOLEH kembali ke 'active'
+ * - Sekali keluar dari pool = keluar selamanya
  */
-export type CouponStatus = 'active' | 'void' | 'cancelled'
+export type CouponStatus = 'active' | 'void'
 
 /**
  * Participant status

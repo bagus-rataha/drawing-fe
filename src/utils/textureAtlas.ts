@@ -29,12 +29,6 @@ interface AtlasConfig {
   cellWidth?: number
   /** Height of each cell in pixels */
   cellHeight?: number
-  /** Font size in pixels */
-  fontSize?: number
-  /** Font family */
-  fontFamily?: string
-  /** Text color (CSS color) */
-  textColor?: string
   /** Background color (CSS color) */
   bgColor?: string
 }
@@ -55,12 +49,25 @@ interface AtlasResult {
 }
 
 /**
+ * Truncate text to fit within maxWidth
+ */
+function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text
+
+  let truncated = text
+  while (ctx.measureText(truncated + '..').width > maxWidth && truncated.length > 0) {
+    truncated = truncated.slice(0, -1)
+  }
+  return truncated + '..'
+}
+
+/**
  * Creates a texture atlas from an array of coupons
  *
  * Display modes:
- * - coupon-only: Shows coupon ID only
- * - coupon-participant-id: Shows coupon ID + participant ID (2 lines)
- * - coupon-participant-name: Shows coupon ID + participant name (2 lines)
+ * - coupon-only: Shows coupon ID only (primary style)
+ * - coupon-participant-id: Shows coupon ID (secondary) + participant ID (primary)
+ * - coupon-participant-name: Shows coupon ID (secondary) + participant name (primary)
  */
 export function createTextureAtlas(config: AtlasConfig): AtlasResult {
   const {
@@ -69,11 +76,10 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
     cols = SPHERE_CONFIG.atlasColumns,
     cellWidth = SPHERE_CONFIG.atlasCellWidth,
     cellHeight = SPHERE_CONFIG.atlasCellHeight,
-    fontSize = 14,
-    fontFamily = 'Plus Jakarta Sans, Arial, sans-serif',
-    textColor = '#0a2540',
     bgColor = '#fdf4f7',
   } = config
+
+  const fontSettings = SPHERE_CONFIG.fontSettings
 
   // Calculate grid dimensions
   const rows = Math.ceil(coupons.length / cols)
@@ -95,7 +101,6 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
   // Configure text rendering
-  ctx.fillStyle = textColor
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -107,46 +112,49 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
     const x = col * cellWidth + cellWidth / 2
     const y = row * cellHeight + cellHeight / 2
 
-    // Generate display lines based on mode
-    const lines: string[] = []
+    // Generate display text based on mode
+    let primaryText = ''
+    let secondaryText = ''
 
     switch (displayMode) {
       case 'coupon-only':
-        lines.push(coupon.id)
+        primaryText = coupon.id
         break
       case 'coupon-participant-id':
-        lines.push(coupon.id)
-        lines.push(coupon.participantId)
+        primaryText = coupon.participantId
+        secondaryText = coupon.id
         break
       case 'coupon-participant-name':
-        lines.push(coupon.id)
-        lines.push(coupon.participantName || coupon.participantId)
+        primaryText = coupon.participantName || coupon.participantId
+        secondaryText = coupon.id
         break
       default:
-        lines.push(coupon.id)
+        primaryText = coupon.id
     }
 
-    // Calculate line positioning
-    const lineHeight = fontSize + 4
-    const totalTextHeight = lines.length * lineHeight
-    const startY = y - totalTextHeight / 2 + lineHeight / 2
+    const lineHeight = fontSettings.primarySize + 6
+    const maxTextWidth = cellWidth - 10
 
-    // Draw each line
-    lines.forEach((line, lineIndex) => {
-      // First line (coupon ID) - smaller font
-      if (lineIndex === 0 && lines.length > 1) {
-        ctx.font = `${fontSize * 0.75}px ${fontFamily}`
-      } else {
-        // Second line (ID or name) - bold, larger
-        ctx.font = `bold ${fontSize}px ${fontFamily}`
-      }
+    if (secondaryText) {
+      // Two-line layout: secondary (coupon ID) on top, primary (name/ID) below
+      // Draw secondary text (coupon ID) - top, smaller, muted
+      ctx.font = `${fontSettings.secondarySize}px ${fontSettings.family}`
+      ctx.fillStyle = fontSettings.secondaryColor
+      const truncatedSecondary = truncateText(ctx, secondaryText, maxTextWidth)
+      ctx.fillText(truncatedSecondary, x, y - lineHeight / 2)
 
-      // Truncate if too long
-      const maxChars = Math.floor(cellWidth / (fontSize * 0.5))
-      const displayText = line.length > maxChars ? line.substring(0, maxChars - 2) + '..' : line
-
-      ctx.fillText(displayText, x, startY + lineIndex * lineHeight)
-    })
+      // Draw primary text (name/ID) - bottom, bold
+      ctx.font = `${fontSettings.primaryWeight} ${fontSettings.primarySize}px ${fontSettings.family}`
+      ctx.fillStyle = fontSettings.primaryColor
+      const truncatedPrimary = truncateText(ctx, primaryText, maxTextWidth)
+      ctx.fillText(truncatedPrimary, x, y + lineHeight / 2)
+    } else {
+      // Single line layout: primary text centered
+      ctx.font = `${fontSettings.primaryWeight} ${fontSettings.primarySize}px ${fontSettings.family}`
+      ctx.fillStyle = fontSettings.primaryColor
+      const truncatedPrimary = truncateText(ctx, primaryText, maxTextWidth)
+      ctx.fillText(truncatedPrimary, x, y)
+    }
   })
 
   // Create Three.js texture

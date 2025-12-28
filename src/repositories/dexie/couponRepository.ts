@@ -225,9 +225,29 @@ export const couponRepository: ICouponRepository = {
 
   /**
    * Void a coupon (permanently remove from pool)
+   *
+   * ATURAN ABSOLUT:
+   * - Coupon yang sudah 'void' TIDAK BOLEH kembali ke 'active'
+   * - Sekali keluar dari pool = keluar selamanya
    */
-  async void(id: string): Promise<Coupon> {
-    return this.update(id, { status: 'void' })
+  async void(eventId: string, id: string): Promise<Coupon> {
+    const existing = await db.coupons
+      .where('[eventId+id]')
+      .equals([eventId, id])
+      .first()
+
+    if (!existing) {
+      throw new Error(`Coupon with id ${id} not found in event ${eventId}`)
+    }
+
+    const updated: Coupon = {
+      ...existing,
+      status: 'void',
+    }
+
+    await db.coupons.put(updated)
+    console.log('[CouponRepo] Voided coupon:', id)
+    return updated
   },
 
   /**
@@ -250,50 +270,6 @@ export const couponRepository: ICouponRepository = {
     })
 
     return coupons.length
-  },
-
-  /**
-   * Cancel a coupon (temporarily remove from pool during draw)
-   */
-  async cancel(eventId: string, id: string): Promise<Coupon> {
-    const existing = await db.coupons
-      .where('[eventId+id]')
-      .equals([eventId, id])
-      .first()
-
-    if (!existing) {
-      throw new Error(`Coupon with id ${id} not found in event ${eventId}`)
-    }
-
-    const updated: Coupon = {
-      ...existing,
-      status: 'cancelled',
-    }
-
-    await db.coupons.put(updated)
-    return updated
-  },
-
-  /**
-   * Restore a cancelled coupon (put back in pool)
-   */
-  async restore(eventId: string, id: string): Promise<Coupon> {
-    const existing = await db.coupons
-      .where('[eventId+id]')
-      .equals([eventId, id])
-      .first()
-
-    if (!existing) {
-      throw new Error(`Coupon with id ${id} not found in event ${eventId}`)
-    }
-
-    const updated: Coupon = {
-      ...existing,
-      status: 'active',
-    }
-
-    await db.coupons.put(updated)
-    return updated
   },
 
   /**
