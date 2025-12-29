@@ -201,13 +201,13 @@ export const SPHERE_CONFIG = {
   radius: 6,
 
   /** Number of horizontal rows for card distribution */
-  rows: 10,
+  rows: 11,
 
   /** Card width in 3D units */
   cardWidth: 0.9,
 
   /** Card height in 3D units */
-  cardHeight: 1.5,
+  cardHeight: 1.6,
 
   /** Card background color (hex) */
   cardColor: '#e8b4c8',

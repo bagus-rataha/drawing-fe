@@ -433,8 +433,8 @@ function CancelledWinnersSection({
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Prize</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead className="hidden sm:table-cell">Participant ID</TableHead>
                     <TableHead>Coupon ID</TableHead>
+                    <TableHead className="hidden sm:table-cell">Participant ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="hidden md:table-cell">Reason</TableHead>
                     <TableHead className="hidden sm:table-cell">Drawn At</TableHead>
@@ -450,11 +450,11 @@ function CancelledWinnersSection({
                         </TableCell>
                         <TableCell>{prize?.name || '-'}</TableCell>
                         <TableCell>{winner.participantName || '-'}</TableCell>
-                        <TableCell className="hidden sm:table-cell font-mono text-sm">
-                          {winner.participantId || '-'}
-                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {winner.couponId || '-'}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell font-mono text-sm">
+                          {winner.participantId || '-'}
                         </TableCell>
                         <TableCell>
                           <Badge
