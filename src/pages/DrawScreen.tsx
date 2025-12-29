@@ -42,6 +42,10 @@ export function DrawScreen() {
   const [selectedPrizeForModal, setSelectedPrizeForModal] = useState<Prize | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
 
+  // FIX (Rev 13): Loading states to prevent double-clicks
+  const [isRedrawing, setIsRedrawing] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
+
   // Reveal animation state - controlled here, shared with both rows
   const [revealedCount, setRevealedCount] = useState(0)
   const revealCompleteCalledRef = useRef(false)
@@ -301,82 +305,88 @@ export function DrawScreen() {
   )
 
   // Handle redraw all
+  // FIX (Rev 13): Add loading state and guard to prevent double-clicks
   const handleRedrawAll = useCallback(async () => {
-    if (!currentPrize) return
-    await redrawAll(currentPrize.id)
-  }, [currentPrize, redrawAll])
+    if (!currentPrize || isRedrawing) return
+
+    setIsRedrawing(true)
+    try {
+      await redrawAll(currentPrize.id)
+    } finally {
+      setIsRedrawing(false)
+    }
+  }, [currentPrize, redrawAll, isRedrawing])
 
   // Handle confirm
-  // FIX (Rev 11): Accept both 'revealing' and 'reviewing' states
-  // If still revealing, force transition first to avoid 2-click issue
+  // FIX (Rev 13): Add loading state guard and simplify flow
   const handleConfirm = useCallback(async () => {
-    console.log('[DrawScreen] handleConfirm called, state:', state)
+    console.log('[DrawScreen] handleConfirm called, state:', state, 'isConfirming:', isConfirming)
 
-    // Accept both 'revealing' and 'reviewing' states
-    if (!['revealing', 'reviewing'].includes(state)) {
+    // Guard against double-clicks
+    if (isConfirming || isRedrawing) {
+      console.warn('[DrawScreen] handleConfirm blocked - already processing')
+      return
+    }
+
+    // Only allow from reviewing state
+    if (state !== 'reviewing') {
       console.warn('[DrawScreen] handleConfirm blocked - invalid state:', state)
       return
     }
 
-    // Force transition if still revealing
-    if (state === 'revealing') {
-      console.log('[DrawScreen] Force transition from revealing to reviewing')
-      revealCompleteCalledRef.current = true
-      revealComplete()
-      // Small delay for state update
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-
     if (!currentPrize || !eventId) return
+
+    setIsConfirming(true)
 
     try {
       await confirm(currentPrize.id)
+      console.log('[DrawScreen] confirm succeeded')
 
       // FIX (Rev 12): Invalidate winners cache so History page shows updated data
       queryClient.invalidateQueries({ queryKey: winnerKeys.list(eventId) })
       queryClient.invalidateQueries({ queryKey: winnerKeys.grouped(eventId) })
       queryClient.invalidateQueries({ queryKey: winnerKeys.count(eventId) })
       console.log('[DrawScreen] Winners cache invalidated')
+
+      // Refresh prize data to get updated drawnCount
+      const updatedPrizes = await prizeRepository.getByEventId(eventId)
+      setPrizes(updatedPrizes)
+
+      // Get the updated prize
+      const updatedPrize = updatedPrizes.find((p) => p.id === currentPrize.id)
+
+      // Check if this prize needs more draws
+      if (updatedPrize) {
+        const totalDraws = calculateTotalDraws(updatedPrize)
+        const hasMoreDraws = currentBatchIndex + 1 < totalDraws
+
+        if (hasMoreDraws) {
+          // More draws needed for this prize
+          nextBatch()
+          return
+        }
+      }
+
+      // Prize is complete, check if more prizes
+      if (currentPrizeIndex < prizes.length - 1) {
+        nextPrize()
+      } else {
+        // All prizes complete - update event status to 'completed'
+        try {
+          await eventRepository.update(eventId, { status: 'completed' })
+        } catch (error) {
+          console.error('[DrawScreen] Failed to update event status:', error)
+        }
+        // Navigate to history
+        navigate(`/event/${eventId}/history`)
+      }
     } catch (error) {
       // Confirm failed - likely due to cancelled winners that need redraw
       console.error('[DrawScreen] Confirm failed:', error)
-      // Don't proceed with state transitions if confirm failed
-      return
+    } finally {
+      setIsConfirming(false)
     }
-
-    // Refresh prize data to get updated drawnCount
-    const updatedPrizes = await prizeRepository.getByEventId(eventId)
-    setPrizes(updatedPrizes)
-
-    // Get the updated prize
-    const updatedPrize = updatedPrizes.find((p) => p.id === currentPrize.id)
-
-    // Check if this prize needs more draws
-    if (updatedPrize) {
-      const totalDraws = calculateTotalDraws(updatedPrize)
-      const hasMoreDraws = currentBatchIndex + 1 < totalDraws
-
-      if (hasMoreDraws) {
-        // More draws needed for this prize
-        nextBatch()
-        return
-      }
-    }
-
-    // Prize is complete, check if more prizes
-    if (currentPrizeIndex < prizes.length - 1) {
-      nextPrize()
-    } else {
-      // All prizes complete - update event status to 'completed'
-      try {
-        await eventRepository.update(eventId, { status: 'completed' })
-      } catch (error) {
-        console.error('[DrawScreen] Failed to update event status:', error)
-      }
-      // Navigate to history
-      navigate(`/event/${eventId}/history`)
-    }
-  }, [currentPrize, eventId, currentPrizeIndex, currentBatchIndex, prizes.length, confirm, nextPrize, nextBatch, calculateTotalDraws, navigate, state, revealComplete, queryClient])
+  }, [currentPrize, eventId, currentPrizeIndex, currentBatchIndex, prizes.length, confirm, nextPrize, nextBatch, calculateTotalDraws, navigate, state, queryClient, isConfirming, isRedrawing])
 
   // Handle prize click in panel
   const handlePrizeClick = useCallback((prizeId: string) => {
@@ -495,6 +505,8 @@ export function DrawScreen() {
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
+        isRedrawing={isRedrawing}
+        isConfirming={isConfirming}
       />
 
       {/* Prize Winners Modal */}

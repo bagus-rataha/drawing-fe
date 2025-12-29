@@ -163,6 +163,16 @@ export interface ICouponRepository {
   voidByParticipantId(eventId: string, participantId: string): Promise<number>
 
   /**
+   * Void all coupons for multiple participants at once (batch operation)
+   * FIX (Rev 16): PERFORMANCE - single batch instead of sequential
+   *
+   * @param eventId - Event ID
+   * @param participantIds - Array of participant IDs
+   * @returns Number of coupons voided
+   */
+  voidByParticipantIds(eventId: string, participantIds: string[]): Promise<number>
+
+  /**
    * Get count of coupons for an event
    * @param eventId - Event ID
    * @returns Total count

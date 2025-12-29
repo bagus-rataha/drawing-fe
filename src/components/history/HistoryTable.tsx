@@ -8,7 +8,7 @@
  * - Collapsible prize sections
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Winner, Prize } from '@/types'
 import {
   Table,
@@ -286,54 +286,59 @@ function PrizeWinnersSection({
             </p>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Coupon ID</TableHead>
-                    <TableHead>Participant ID</TableHead>
-                    <TableHead>Batch</TableHead>
-                    <TableHead>Confirmed At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedWinners.map((winner, index) => (
-                    <TableRow key={winner.id}>
-                      <TableCell className="font-medium">
-                        {currentPage * ITEMS_PER_PAGE + index + 1}
-                      </TableCell>
-                      <TableCell>{winner.participantName || '-'}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {winner.couponId}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {winner.participantId}
-                      </TableCell>
-                      <TableCell>{winner.batchNumber}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {winner.confirmedAt
-                          ? formatDate(winner.confirmedAt, {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            })
-                          : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {/* FIX (Rev 13): Responsive table wrapper for horizontal scroll on mobile */}
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Coupon ID</TableHead>
+                        <TableHead>Participant ID</TableHead>
+                        <TableHead className="hidden sm:table-cell">Batch</TableHead>
+                        <TableHead className="hidden sm:table-cell">Confirmed At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedWinners.map((winner, index) => (
+                        <TableRow key={winner.id}>
+                          <TableCell className="font-medium">
+                            {currentPage * ITEMS_PER_PAGE + index + 1}
+                          </TableCell>
+                          <TableCell>{winner.participantName || '-'}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {winner.couponId}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {winner.participantId}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">{winner.batchNumber}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                            {winner.confirmedAt
+                              ? formatDate(winner.confirmedAt, {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })
+                              : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
 
-              {/* Pagination */}
+              {/* Pagination - FIX (Rev 13): Responsive layout */}
               {totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
+                <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {currentPage * ITEMS_PER_PAGE + 1}-
                     {Math.min((currentPage + 1) * ITEMS_PER_PAGE, winners.length)}{' '}
                     of {winners.length}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -372,6 +377,7 @@ function PrizeWinnersSection({
 
 /**
  * Section for cancelled/invalid winners
+ * FIX (Rev 13): Reset pagination when winners list changes (e.g., after search)
  */
 function CancelledWinnersSection({
   winners,
@@ -382,6 +388,11 @@ function CancelledWinnersSection({
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [currentPage, setCurrentPage] = useState(0)
+
+  // FIX (Rev 13): Reset pagination when winners change (e.g., search filter)
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [winners.length])
 
   const totalPages = Math.ceil(winners.length / ITEMS_PER_PAGE)
   const paginatedWinners = winners.slice(
@@ -413,71 +424,76 @@ function CancelledWinnersSection({
 
       {isExpanded && (
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Prize</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Participant ID</TableHead>
-                <TableHead>Coupon ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Drawn At</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedWinners.map((winner, index) => {
-                const prize = prizeMap.get(winner.prizeId)
-                return (
-                  <TableRow key={winner.id}>
-                    <TableCell className="font-medium">
-                      {currentPage * ITEMS_PER_PAGE + index + 1}
-                    </TableCell>
-                    <TableCell>{prize?.name || '-'}</TableCell>
-                    <TableCell>{winner.participantName || '-'}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {winner.participantId || '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {winner.couponId || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          winner.status === 'cancelled'
-                            ? 'destructive'
-                            : 'secondary'
-                        }
-                      >
-                        {winner.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                      {winner.cancelReason?.message || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(winner.drawnAt, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })}
-                    </TableCell>
+          {/* FIX (Rev 13): Responsive table wrapper */}
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Prize</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">Participant ID</TableHead>
+                    <TableHead>Coupon ID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Reason</TableHead>
+                    <TableHead className="hidden sm:table-cell">Drawn At</TableHead>
                   </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedWinners.map((winner, index) => {
+                    const prize = prizeMap.get(winner.prizeId)
+                    return (
+                      <TableRow key={winner.id}>
+                        <TableCell className="font-medium">
+                          {currentPage * ITEMS_PER_PAGE + index + 1}
+                        </TableCell>
+                        <TableCell>{prize?.name || '-'}</TableCell>
+                        <TableCell>{winner.participantName || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell font-mono text-sm">
+                          {winner.participantId || '-'}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {winner.couponId || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              winner.status === 'cancelled'
+                                ? 'destructive'
+                                : 'secondary'
+                            }
+                          >
+                            {winner.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[200px] truncate text-sm text-muted-foreground">
+                          {winner.cancelReason?.message || '-'}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {formatDate(winner.drawnAt, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
 
-          {/* Pagination */}
+          {/* Pagination - FIX (Rev 13): Responsive layout */}
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span className="text-sm text-muted-foreground text-center sm:text-left">
                 Showing {currentPage * ITEMS_PER_PAGE + 1}-
                 {Math.min((currentPage + 1) * ITEMS_PER_PAGE, winners.length)} of{' '}
                 {winners.length}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"

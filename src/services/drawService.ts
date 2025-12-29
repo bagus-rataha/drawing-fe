@@ -62,8 +62,9 @@ export interface IDrawService {
 
   /**
    * Confirm winners and void coupons according to win rules
+   * FIX (Rev 17): Added batchNumber parameter to only confirm current batch
    */
-  confirm(prizeId: string): Promise<void>
+  confirm(prizeId: string, batchNumber: number): Promise<void>
 
   /**
    * Get current draw progress for an event
@@ -181,49 +182,6 @@ function weightedRandomSelect(coupons: Coupon[], count: number): Coupon[] {
   }
 
   return selected
-}
-
-/**
- * Void additional coupons for a confirmed winner according to win rules
- * Private helper function
- *
- * NOTE: The winning coupon is already voided at draw time.
- * This function handles additional voiding for win rules (e.g., one-time voids all)
- */
-async function voidCouponsForWinner(
-  winnerId: string,
-  eventId: string,
-  winRule: WinRule
-): Promise<void> {
-  const winner = await winnerRepository.getById(winnerId)
-  if (!winner) {
-    return
-  }
-
-  switch (winRule.type) {
-    case 'one-time':
-      // Void ALL coupons for this participant (winning coupon already voided)
-      await couponRepository.voidByParticipantId(eventId, winner.participantId)
-      break
-
-    case 'limited': {
-      // Winning coupon already voided at draw time
-      // Check if participant reached max wins
-      const winCount = await winnerRepository.getConfirmedWinCount(
-        eventId,
-        winner.participantId
-      )
-      if (winRule.maxWins !== undefined && winCount >= winRule.maxWins) {
-        // Void all remaining coupons
-        await couponRepository.voidByParticipantId(eventId, winner.participantId)
-      }
-      break
-    }
-
-    case 'unlimited':
-      // Winning coupon already voided at draw time, nothing more to do
-      break
-  }
 }
 
 /**
@@ -431,13 +389,16 @@ export const drawService: IDrawService = {
     console.log('[RedrawAll] prizeId:', prizeId)
     console.log('[RedrawAll] batchNumber:', batchNumber)
 
-    // Get cancelled winners that are unconfirmed (current session)
-    const cancelledWinners = await winnerRepository.getByPrizeIdAndStatus(
+    // Get cancelled winners that are unconfirmed IN CURRENT BATCH ONLY
+    // FIX (Rev 17): Filter by batchNumber to avoid processing old cancelled from previous sessions
+    const allCancelledWinners = await winnerRepository.getByPrizeIdAndStatus(
       prizeId,
       'cancelled',
       'null' // only unconfirmed
     )
-    console.log('[RedrawAll] Cancelled winners count:', cancelledWinners.length)
+    // Filter by batchNumber
+    const cancelledWinners = allCancelledWinners.filter(w => w.batchNumber === batchNumber)
+    console.log('[RedrawAll] Cancelled winners in batch:', cancelledWinners.length, '(total unconfirmed:', allCancelledWinners.length, ')')
 
     if (cancelledWinners.length === 0) {
       console.log('[RedrawAll] No cancelled winners, returning empty')
@@ -479,12 +440,17 @@ export const drawService: IDrawService = {
     const results: DrawResult[] = []
     const couponIdsToVoid: string[] = [] // Collect for batch void
 
+    // FIX (Rev 16): Mark old cancelled winners as "processed" by setting confirmedAt
+    // This keeps them in DB for History page audit trail, but prevents them from
+    // blocking confirm (which checks for cancelled winners with confirmedAt = null)
+    const now = new Date()
+    for (const cancelledWinner of cancelledWinners) {
+      await winnerRepository.update(cancelledWinner.id, { confirmedAt: now })
+      console.log('[RedrawAll] Marked old cancelled winner as processed:', cancelledWinner.id)
+    }
+
     for (const cancelledWinner of cancelledWinners) {
       const lineNumber = cancelledWinner.lineNumber
-
-      // Delete old cancelled winner entry first
-      console.log('[RedrawAll] Deleting old cancelled winner:', cancelledWinner.id)
-      await winnerRepository.delete(cancelledWinner.id)
 
       // Try to find a replacement
       if (eligibleCoupons.length === 0) {
@@ -595,51 +561,123 @@ export const drawService: IDrawService = {
 
   /**
    * Confirm winners and void coupons according to win rules
+   * FIX (Rev 14): Added detailed logging to debug stuck issue
+   * FIX (Rev 17): Filter by batchNumber to only check current batch
    */
-  async confirm(prizeId: string): Promise<void> {
-    // Check for unhandled cancelled winners
-    const cancelledWinners = await winnerRepository.getByPrizeIdAndStatus(
+  async confirm(prizeId: string, batchNumber: number): Promise<void> {
+    console.log('[CONFIRM] Step 1: Starting confirm for prizeId:', prizeId, 'batchNumber:', batchNumber)
+
+    // Check for unhandled cancelled winners IN CURRENT BATCH ONLY
+    // FIX (Rev 17): Filter by batchNumber to avoid finding old cancelled from previous sessions
+    console.log('[CONFIRM] Step 2: Checking for cancelled winners in batch', batchNumber)
+    const allCancelledWinners = await winnerRepository.getByPrizeIdAndStatus(
       prizeId,
       'cancelled',
       'null' // only unconfirmed
     )
+    // Filter by batchNumber
+    const cancelledWinners = allCancelledWinners.filter(w => w.batchNumber === batchNumber)
+    console.log('[CONFIRM] Step 2 done: cancelledWinners in batch:', cancelledWinners.length, '(total unconfirmed:', allCancelledWinners.length, ')')
 
     if (cancelledWinners.length > 0) {
+      console.error('[CONFIRM] BLOCKED: Has cancelled winners in current batch, throwing error')
       throw new Error(
         `Cannot confirm: ${cancelledWinners.length} cancelled winners need to be redrawn`
       )
     }
 
+    console.log('[CONFIRM] Step 3: Getting prize...')
     const prize = await prizeRepository.getById(prizeId)
+    console.log('[CONFIRM] Step 3 done: prize found:', !!prize)
     if (!prize) {
       throw new Error(`Prize with id ${prizeId} not found`)
     }
 
+    console.log('[CONFIRM] Step 4: Getting event...')
     const event = await eventRepository.getById(prize.eventId)
+    console.log('[CONFIRM] Step 4 done: event found:', !!event)
     if (!event) {
       throw new Error(`Event for prize ${prizeId} not found`)
     }
 
     // Get valid unconfirmed winners
+    console.log('[CONFIRM] Step 5: Getting valid unconfirmed winners...')
     const validWinners = await winnerRepository.getByPrizeIdAndStatus(
       prizeId,
       'valid',
       'null' // only unconfirmed
     )
+    console.log('[CONFIRM] Step 5 done: validWinners count:', validWinners.length)
 
     // Confirm winners (set confirmedAt)
+    console.log('[CONFIRM] Step 6: Confirming winners in DB...')
     await winnerRepository.confirmByPrizeId(prizeId)
+    console.log('[CONFIRM] Step 6 done: confirmByPrizeId completed')
 
-    // Void coupons according to win rules
-    for (const winner of validWinners) {
-      await voidCouponsForWinner(winner.id, event.id, event.winRule)
+    // FIX (Rev 16): BATCH void coupons according to win rules
+    // Instead of sequential voidCouponsForWinner, use batch operation
+    console.log('[CONFIRM] Step 7: Batch voiding coupons based on win rule:', event.winRule.type)
+    const startVoidTime = Date.now()
+
+    // Get unique participant IDs from valid winners
+    const participantIds = [...new Set(validWinners.map((w) => w.participantId))]
+    console.log('[CONFIRM] Step 7: Unique participants:', participantIds.length)
+
+    switch (event.winRule.type) {
+      case 'one-time':
+        // Void ALL coupons for ALL winning participants
+        console.log('[CONFIRM] Step 7: one-time rule - voiding all coupons for participants')
+        await couponRepository.voidByParticipantIds(event.id, participantIds)
+        break
+
+      case 'limited': {
+        // Check each participant's win count and void if reached max
+        const maxWins = event.winRule.maxWins || 1
+        console.log('[CONFIRM] Step 7: limited rule - checking win counts, maxWins:', maxWins)
+
+        // Count wins per participant in this batch
+        const batchWinCounts = new Map<string, number>()
+        for (const winner of validWinners) {
+          batchWinCounts.set(winner.participantId, (batchWinCounts.get(winner.participantId) || 0) + 1)
+        }
+
+        // Find participants who reached max (previous + batch wins >= maxWins)
+        const participantsAtMax: string[] = []
+        for (const [participantId, batchWins] of batchWinCounts) {
+          const previousWins = await winnerRepository.getConfirmedWinCount(event.id, participantId)
+          if (previousWins + batchWins >= maxWins) {
+            participantsAtMax.push(participantId)
+          }
+        }
+
+        console.log('[CONFIRM] Step 7: Participants at max:', participantsAtMax.length)
+        if (participantsAtMax.length > 0) {
+          await couponRepository.voidByParticipantIds(event.id, participantsAtMax)
+        }
+        break
+      }
+
+      case 'unlimited':
+        // Do nothing - winning coupons already voided at draw time
+        console.log('[CONFIRM] Step 7: unlimited rule - no additional voiding needed')
+        break
     }
 
+    const voidElapsed = Date.now() - startVoidTime
+    console.log('[CONFIRM] Step 7 complete: Batch void done in', voidElapsed, 'ms')
+
     // Update prize drawnCount
+    console.log('[CONFIRM] Step 8: Getting confirmed count...')
     const confirmedCount = await winnerRepository.getConfirmedCountByPrize(
       prizeId
     )
+    console.log('[CONFIRM] Step 8 done: confirmedCount:', confirmedCount)
+
+    console.log('[CONFIRM] Step 9: Updating prize drawnCount...')
     await prizeRepository.update(prizeId, { drawnCount: confirmedCount })
+    console.log('[CONFIRM] Step 9 done: Prize updated')
+
+    console.log('[CONFIRM] COMPLETE: Confirm finished successfully')
   },
 
   /**

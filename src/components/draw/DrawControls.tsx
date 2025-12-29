@@ -18,6 +18,9 @@ interface DrawControlsProps {
   currentPage: number
   totalPages: number
   onPageChange: (page: number) => void
+  // FIX (Rev 13): Loading states to disable buttons during async operations
+  isRedrawing?: boolean
+  isConfirming?: boolean
 }
 
 export function DrawControls({
@@ -32,6 +35,8 @@ export function DrawControls({
   currentPage,
   totalPages,
   onPageChange,
+  isRedrawing = false,
+  isConfirming = false,
 }: DrawControlsProps) {
   const showPagination = status === 'reviewing' && totalPages > 1
 
@@ -77,23 +82,30 @@ export function DrawControls({
       case 'reviewing':
         // FIX (Rev 12): Confirm button should ONLY show when ALL winners are valid
         // If there are cancelled winners, only show Redraw All button
+        // FIX (Rev 13): Disable buttons during async operations
         return (
           <div className="flex gap-4">
             {hasCancelled ? (
               <button
                 onClick={onRedrawAll}
-                className="px-6 py-3 bg-amber-500 text-white font-medium rounded-full
-                           shadow-lg hover:bg-amber-600 transition-colors text-lg"
+                disabled={isRedrawing || isConfirming}
+                className={`px-6 py-3 font-medium rounded-full shadow-lg transition-colors text-lg
+                           ${isRedrawing || isConfirming
+                             ? 'bg-gray-400 text-white cursor-not-allowed'
+                             : 'bg-amber-500 text-white hover:bg-amber-600'}`}
               >
-                Redraw All ({totalCount - validCount} cancelled)
+                {isRedrawing ? 'Redrawing...' : `Redraw All (${totalCount - validCount} cancelled)`}
               </button>
             ) : (
               <button
                 onClick={onConfirm}
-                className="px-8 py-3 bg-[#635bff] text-white font-medium rounded-full
-                           shadow-lg hover:bg-[#524acc] transition-colors text-lg"
+                disabled={isConfirming || isRedrawing}
+                className={`px-8 py-3 font-medium rounded-full shadow-lg transition-colors text-lg
+                           ${isConfirming || isRedrawing
+                             ? 'bg-gray-400 text-white cursor-not-allowed'
+                             : 'bg-[#635bff] text-white hover:bg-[#524acc]'}`}
               >
-                Confirm {validCount} Winners
+                {isConfirming ? 'Confirming...' : `Confirm ${validCount} Winners`}
               </button>
             )}
           </div>

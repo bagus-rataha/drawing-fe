@@ -75,7 +75,8 @@ export function Home() {
     <div className="min-h-screen bg-surface-alt">
       <Header />
 
-      <main className="container py-8">
+      {/* FIX (Rev 13): Responsive layout with proper padding */}
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Centered event list container */}
         <div className="mx-auto max-w-[720px]">
           <EventList

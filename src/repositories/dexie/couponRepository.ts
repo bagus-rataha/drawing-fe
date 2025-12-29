@@ -285,14 +285,24 @@ export const couponRepository: ICouponRepository = {
 
   /**
    * Void all coupons for a participant within an event
+   * FIX (Rev 14): Added detailed logging to debug stuck issue
    */
   async voidByParticipantId(eventId: string, participantId: string): Promise<number> {
+    console.log('[CouponRepo.voidByParticipantId] Starting:', { eventId, participantId })
+
     const coupons = await db.coupons
       .where('eventId')
       .equals(eventId)
       .filter((c) => c.participantId === participantId)
       .toArray()
+    console.log('[CouponRepo.voidByParticipantId] Found', coupons.length, 'coupons')
 
+    if (coupons.length === 0) {
+      console.log('[CouponRepo.voidByParticipantId] No coupons to void, returning 0')
+      return 0
+    }
+
+    console.log('[CouponRepo.voidByParticipantId] Starting transaction...')
     await db.transaction('rw', db.coupons, async () => {
       for (const coupon of coupons) {
         await db.coupons.put({
@@ -301,6 +311,46 @@ export const couponRepository: ICouponRepository = {
         })
       }
     })
+    console.log('[CouponRepo.voidByParticipantId] Transaction complete')
+
+    return coupons.length
+  },
+
+  /**
+   * Void all coupons for multiple participants at once (batch operation)
+   * FIX (Rev 16): PERFORMANCE - single batch operation instead of sequential
+   *
+   * @param eventId - Event ID
+   * @param participantIds - Array of participant IDs
+   * @returns Number of coupons voided
+   */
+  async voidByParticipantIds(eventId: string, participantIds: string[]): Promise<number> {
+    if (participantIds.length === 0) {
+      return 0
+    }
+
+    console.log('[CouponRepo.voidByParticipantIds] Starting for', participantIds.length, 'participants')
+    const startTime = Date.now()
+
+    // Get all active coupons for these participants
+    const coupons = await db.coupons
+      .where('eventId')
+      .equals(eventId)
+      .filter((c) => participantIds.includes(c.participantId) && c.status === 'active')
+      .toArray()
+
+    console.log('[CouponRepo.voidByParticipantIds] Found', coupons.length, 'coupons to void')
+
+    if (coupons.length === 0) {
+      return 0
+    }
+
+    // Batch update all coupons
+    const voidedCoupons = coupons.map((c) => ({ ...c, status: 'void' as const }))
+    await db.coupons.bulkPut(voidedCoupons)
+
+    const elapsed = Date.now() - startTime
+    console.log('[CouponRepo.voidByParticipantIds] Voided', coupons.length, 'coupons in', elapsed, 'ms')
 
     return coupons.length
   },

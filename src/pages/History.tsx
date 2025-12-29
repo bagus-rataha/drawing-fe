@@ -28,11 +28,12 @@ export function History() {
 
   const isLoading = isLoadingEvent || isLoadingWinners || isLoadingPrizes
 
+  // FIX (Rev 13): Responsive layout with proper padding
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-alt">
         <Header />
-        <main className="container py-8">
+        <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="mx-auto max-w-[960px]">
             <Skeleton className="mb-4 h-8 w-48" />
             <Skeleton className="mb-8 h-12 w-full" />
@@ -47,7 +48,7 @@ export function History() {
     return (
       <div className="min-h-screen bg-surface-alt">
         <Header />
-        <main className="container py-8">
+        <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="mx-auto max-w-[960px]">
             <EmptyState
               icon={AlertCircle}
@@ -65,7 +66,7 @@ export function History() {
     <div className="min-h-screen bg-surface-alt">
       <Header />
 
-      <main className="container py-8">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mx-auto max-w-[960px]">
           {/* Header */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -76,7 +77,7 @@ export function History() {
                   Back to Events
                 </Link>
               </Button>
-              <h1 className="text-3xl font-bold text-navy">{event.name}</h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-navy">{event.name}</h1>
               <div className="mt-2 flex items-center gap-2 text-content-muted">
                 <Trophy className="h-4 w-4 text-primary" />
                 <span>

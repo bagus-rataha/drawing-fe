@@ -336,13 +336,16 @@ export function useDrawState(): UseDrawStateReturn {
   }, [])
 
   // Redraw all cancelled
+  // FIX (Rev 14): Add timestamp to redraw ID to ensure uniqueness across multiple redraws
   const redrawAll = useCallback(
     async (prizeId: string) => {
       try {
         const newResults = await drawService.redrawAll(prizeId, state.currentBatchIndex + 1)
+        // Use timestamp to ensure unique IDs even after multiple redraws
+        const timestamp = Date.now()
         const newResultsWithId: DrawResultWithId[] = newResults.map((r, i) => ({
           ...r,
-          id: `${prizeId}-${state.currentBatchIndex + 1}-redraw-${i}`,
+          id: `${prizeId}-${state.currentBatchIndex + 1}-redraw-${timestamp}-${i}`,
         }))
         // Replace cancelled winners with new results
         const validWinners = state.winners.filter((w) => w.status !== 'cancelled')
@@ -355,18 +358,22 @@ export function useDrawState(): UseDrawStateReturn {
   )
 
   // Confirm winners
-  // NOTE: Empty dependency - state check is done via guard in reducer
+  // FIX (Rev 17): Pass batchNumber to confirm to filter by current batch only
   // Throws if confirm fails so caller can handle it
-  const confirm = useCallback(async (prizeId: string) => {
-    console.log('[useDrawState] confirm called')
-    try {
-      await drawService.confirm(prizeId)
-      console.log('[useDrawState] confirm succeeded')
-    } catch (error) {
-      console.error('[useDrawState] Confirm failed:', error)
-      throw error // Re-throw so caller knows it failed
-    }
-  }, [])
+  const confirm = useCallback(
+    async (prizeId: string) => {
+      const batchNumber = state.currentBatchIndex + 1
+      console.log('[useDrawState] confirm called, batchNumber:', batchNumber)
+      try {
+        await drawService.confirm(prizeId, batchNumber)
+        console.log('[useDrawState] confirm succeeded')
+      } catch (error) {
+        console.error('[useDrawState] Confirm failed:', error)
+        throw error // Re-throw so caller knows it failed
+      }
+    },
+    [state.currentBatchIndex]
+  )
 
   // Move to next batch
   const nextBatch = useCallback(() => {

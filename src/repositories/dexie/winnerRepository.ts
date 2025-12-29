@@ -274,23 +274,40 @@ export const winnerRepository: IWinnerRepository = {
 
   /**
    * Confirm all valid winners for a prize (set confirmedAt)
+   * FIX (Rev 14): Added detailed logging to debug stuck issue
    */
   async confirmByPrizeId(prizeId: string): Promise<number> {
+    console.log('[WinnerRepo.confirmByPrizeId] Starting for prizeId:', prizeId)
     const now = new Date()
+
+    console.log('[WinnerRepo.confirmByPrizeId] Querying winners...')
     const winners = await db.winners
       .where('[prizeId+status]')
       .equals([prizeId, 'valid'])
       .filter((w) => w.confirmedAt === undefined)
       .toArray()
+    console.log('[WinnerRepo.confirmByPrizeId] Found', winners.length, 'winners to confirm')
 
+    if (winners.length === 0) {
+      console.log('[WinnerRepo.confirmByPrizeId] No winners to confirm, returning 0')
+      return 0
+    }
+
+    console.log('[WinnerRepo.confirmByPrizeId] Starting transaction...')
     await db.transaction('rw', db.winners, async () => {
-      for (const winner of winners) {
+      console.log('[WinnerRepo.confirmByPrizeId] Inside transaction, updating', winners.length, 'winners')
+      for (let i = 0; i < winners.length; i++) {
+        const winner = winners[i]
         await db.winners.put({
           ...winner,
           confirmedAt: now,
         })
+        if ((i + 1) % 10 === 0 || i === winners.length - 1) {
+          console.log('[WinnerRepo.confirmByPrizeId] Updated', i + 1, '/', winners.length)
+        }
       }
     })
+    console.log('[WinnerRepo.confirmByPrizeId] Transaction complete, returning', winners.length)
 
     return winners.length
   },
