@@ -59,6 +59,7 @@ export function DrawScreen() {
     currentBatchIndex,
     winners,
     currentPage,
+    redrawPositions, // FIX (Rev 20): Track which positions are being redrawn
     isSpinning,
     isIdle,
     hasCancelled,
@@ -199,47 +200,73 @@ export function DrawScreen() {
 
   /**
    * FIX (Rev 12): Optimized reveal animation
-   * - Only animate cards on the FIRST PAGE (visible cards)
-   * - Cards on other pages are revealed instantly
-   * - This reduces 50 re-renders to just 10 (cardsPerPage)
-   * - Animation completes much faster: 10 × 200ms = 2 seconds vs 50 × 200ms = 10 seconds
+   * FIX (Rev 20): For redraw, only animate redrawn positions
    */
   useEffect(() => {
     if (state !== 'revealing' || winners.length === 0) {
       return
     }
 
-    // Only animate up to cardsPerPage (first visible page)
-    const animateCount = Math.min(winners.length, cardsPerPage)
-    console.log('[DrawScreen] Starting reveal animation for', animateCount, 'visible cards (total:', winners.length, ')')
-    revealCompleteCalledRef.current = false
-    let currentCount = 0
-
-    // FIX (Rev 19): Use SPHERE_CONFIG for animation timing
     const { revealInterval: interval, revealCompleteDelay } = SPHERE_CONFIG.animation
+    const isRedraw = redrawPositions.length > 0
 
-    const revealIntervalId = setInterval(() => {
-      currentCount++
-      setRevealedCount(currentCount)
+    if (isRedraw) {
+      // FIX (Rev 20): For redraw, show all winners immediately
+      // Valid winners stay visible, redrawn positions will get animation via CSS
+      console.log('[DrawScreen] Redraw reveal - showing all winners, redraw positions:', redrawPositions)
+      setRevealedCount(winners.length)
+      revealCompleteCalledRef.current = false
 
-      if (currentCount >= animateCount) {
-        clearInterval(revealIntervalId)
-        // Immediately reveal all remaining cards (for other pages)
-        setRevealedCount(winners.length)
+      // Animate only the redrawn positions sequentially
+      let currentIndex = 0
+      const redrawCount = redrawPositions.length
 
-        // Quick transition to reviewing state
-        setTimeout(() => {
-          if (!revealCompleteCalledRef.current) {
-            revealCompleteCalledRef.current = true
-            console.log('[DrawScreen] Animation complete, calling revealComplete')
-            revealComplete()
-          }
-        }, revealCompleteDelay)
-      }
-    }, interval)
+      const redrawIntervalId = setInterval(() => {
+        currentIndex++
+        // This triggers re-render which WinnerGallery can use for animation
+        if (currentIndex >= redrawCount) {
+          clearInterval(redrawIntervalId)
+          setTimeout(() => {
+            if (!revealCompleteCalledRef.current) {
+              revealCompleteCalledRef.current = true
+              console.log('[DrawScreen] Redraw animation complete')
+              revealComplete()
+            }
+          }, revealCompleteDelay)
+        }
+      }, interval)
 
-    return () => clearInterval(revealIntervalId)
-  }, [state, winners.length, cardsPerPage, revealComplete])
+      return () => clearInterval(redrawIntervalId)
+    } else {
+      // Normal draw: animate all cards on first page
+      const animateCount = Math.min(winners.length, cardsPerPage)
+      console.log('[DrawScreen] Starting reveal animation for', animateCount, 'visible cards (total:', winners.length, ')')
+      revealCompleteCalledRef.current = false
+      let currentCount = 0
+
+      const revealIntervalId = setInterval(() => {
+        currentCount++
+        setRevealedCount(currentCount)
+
+        if (currentCount >= animateCount) {
+          clearInterval(revealIntervalId)
+          // Immediately reveal all remaining cards (for other pages)
+          setRevealedCount(winners.length)
+
+          // Quick transition to reviewing state
+          setTimeout(() => {
+            if (!revealCompleteCalledRef.current) {
+              revealCompleteCalledRef.current = true
+              console.log('[DrawScreen] Animation complete, calling revealComplete')
+              revealComplete()
+            }
+          }, revealCompleteDelay)
+        }
+      }, interval)
+
+      return () => clearInterval(revealIntervalId)
+    }
+  }, [state, winners.length, cardsPerPage, revealComplete, redrawPositions])
 
   // When in reviewing state, show all cards
   const effectiveRevealedCount = state === 'reviewing' ? winners.length : revealedCount
@@ -491,6 +518,7 @@ export function DrawScreen() {
               currentPage={currentPage}
               onCancel={handleCancel}
               revealedCount={effectiveRevealedCount}
+              redrawPositions={redrawPositions}
             />
 
             {/* Bottom Row */}
@@ -503,6 +531,7 @@ export function DrawScreen() {
               currentPage={currentPage}
               onCancel={handleCancel}
               revealedCount={effectiveRevealedCount}
+              redrawPositions={redrawPositions}
             />
           </div>
         )}

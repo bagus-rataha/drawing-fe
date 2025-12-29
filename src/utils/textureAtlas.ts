@@ -68,6 +68,8 @@ function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: num
  * - coupon-only: Shows coupon ID only (primary style)
  * - coupon-participant-id: Shows coupon ID (secondary) + participant ID (primary)
  * - coupon-participant-name: Shows coupon ID (secondary) + participant name (primary)
+ *
+ * FIX (Rev 20): Use fixed TEXTURE_SCALE instead of devicePixelRatio for consistent sharp text
  */
 export function createTextureAtlas(config: AtlasConfig): AtlasResult {
   const {
@@ -81,26 +83,26 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
 
   const fontSettings = SPHERE_CONFIG.fontSettings
 
-  // FIX (Rev 19): Apply devicePixelRatio for sharper text on retina displays
-  const dpr = Math.min(window.devicePixelRatio || 1, 2) // Cap at 2x to avoid memory issues
+  // FIX (Rev 20): Use fixed texture scale for consistent sharp text across all devices
+  const scale = SPHERE_CONFIG.textureScale
 
   // Calculate grid dimensions
   const rows = Math.ceil(coupons.length / cols)
   const canvasWidth = cols * cellWidth
   const canvasHeight = rows * cellHeight
 
-  // Create canvas with DPR scaling
+  // Create high-resolution canvas
   const canvas = document.createElement('canvas')
-  canvas.width = canvasWidth * dpr
-  canvas.height = canvasHeight * dpr
+  canvas.width = canvasWidth * scale
+  canvas.height = canvasHeight * scale
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
     throw new Error('Failed to get 2D canvas context')
   }
 
-  // Scale context for DPR
-  ctx.scale(dpr, dpr)
+  // Scale context - draw at original coordinates, canvas handles resolution
+  ctx.scale(scale, scale)
 
   // Enable high-quality text rendering
   ctx.imageSmoothingEnabled = true
@@ -171,10 +173,10 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
   const texture = new THREE.CanvasTexture(canvas)
   texture.needsUpdate = true
 
-  // FIX (Rev 19): Use linear mipmap filtering for better text quality at distance
-  texture.minFilter = THREE.LinearMipmapLinearFilter
+  // FIX (Rev 20): Disable mipmaps for sharp text - mipmaps blur text!
+  texture.minFilter = THREE.LinearFilter
   texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = true
+  texture.generateMipmaps = false
 
   return {
     texture,

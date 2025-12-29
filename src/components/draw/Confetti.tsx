@@ -3,39 +3,34 @@
  * @description Confetti effect for winner celebration
  *
  * FIX (Rev 19): Optimized for performance
- * - Use setInterval instead of requestAnimationFrame
- * - Reduced particle count and duration
- * - Added ticks limit for particle lifetime
+ * FIX (Rev 20): Config moved to dedicated file (src/config/confettiConfig.ts)
  */
 
 import { useEffect, useCallback, useRef } from 'react'
 import confetti from 'canvas-confetti'
+import { confettiConfig } from '@/config/confettiConfig'
 
 interface ConfettiProps {
   trigger: boolean
   onComplete?: () => void
 }
 
-// Shared colors for all confetti effects
-const CONFETTI_COLORS = ['#635bff', '#524acc', '#ffd700', '#ff6b6b', '#4ecdc4']
-
-// FIX (Rev 19): Performance-optimized config
-const CONFETTI_CONFIG = {
-  duration: 2000,        // Total duration in ms (reduced from 3000)
-  interval: 50,         // Fire every 120ms instead of every frame (~8fps vs 60fps)
-  particleCount: 3,      // Particles per burst per side (reduced from 3)
-  ticks: 200,            // Particle lifetime - shorter = less lag
-  spread: 100,
-  startVelocity: 30,
-  decay: 0.94,
-}
-
 export function Confetti({ trigger, onComplete }: ConfettiProps) {
   const intervalRef = useRef<number | null>(null)
 
   const fireConfetti = useCallback(() => {
-    const { duration, interval, particleCount, ticks, spread, startVelocity, decay } = CONFETTI_CONFIG
-    const end = Date.now() + duration
+    const {
+      continuousDuration,
+      continuousInterval,
+      continuousParticleCount,
+      spread,
+      startVelocity,
+      decay,
+      ticks,
+      colors,
+    } = confettiConfig
+
+    const end = Date.now() + continuousDuration
 
     // Clear any existing interval
     if (intervalRef.current) {
@@ -54,11 +49,11 @@ export function Confetti({ trigger, onComplete }: ConfettiProps) {
 
       // Left side burst
       confetti({
-        particleCount,
+        particleCount: continuousParticleCount,
         angle: 60,
         spread,
         origin: { x: 0, y: 0.6 },
-        colors: CONFETTI_COLORS,
+        colors,
         ticks,
         startVelocity,
         decay,
@@ -66,16 +61,16 @@ export function Confetti({ trigger, onComplete }: ConfettiProps) {
 
       // Right side burst
       confetti({
-        particleCount,
+        particleCount: continuousParticleCount,
         angle: 120,
         spread,
         origin: { x: 1, y: 0.6 },
-        colors: CONFETTI_COLORS,
+        colors,
         ticks,
         startVelocity,
         decay,
       })
-    }, interval)
+    }, continuousInterval)
   }, [onComplete])
 
   useEffect(() => {
@@ -96,18 +91,27 @@ export function Confetti({ trigger, onComplete }: ConfettiProps) {
 }
 
 /**
- * Fire a single burst of confetti
- * FIX (Rev 19): Reduced particle count for better performance
+ * Fire a single burst of confetti from center
+ * Uses burst-specific config values
  */
 export function fireConfettiBurst() {
+  const {
+    burstParticleCount,
+    burstSpread,
+    burstStartVelocity,
+    burstTicks,
+    decay,
+    colors,
+  } = confettiConfig
+
   confetti({
-    particleCount: 50,  // Reduced from 100
-    spread: 70,
+    particleCount: burstParticleCount,
+    spread: burstSpread,
     origin: { x: 0.5, y: 0.5 },
-    colors: CONFETTI_COLORS,
-    ticks: 150,
-    startVelocity: 35,
-    decay: 0.94,
+    colors,
+    ticks: burstTicks,
+    startVelocity: burstStartVelocity,
+    decay,
   })
 }
 

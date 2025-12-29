@@ -31,6 +31,9 @@ interface InstanceState {
   uvOffsets: Float32Array | null
   mesh: THREE.InstancedMesh | null
   initialized: boolean
+  // FIX (Rev 20): Per-card timing for natural transitions
+  lastUpdateTime: Float32Array | null
+  nextDelay: Float32Array | null
 }
 
 /**
@@ -108,6 +111,9 @@ export function InstancedCards({
     uvOffsets: null,
     mesh: null,
     initialized: false,
+    // FIX (Rev 20): Per-card timing
+    lastUpdateTime: null,
+    nextDelay: null,
   })
 
   // Cleanup on unmount (for React Strict Mode double-mounting)
@@ -117,6 +123,8 @@ export function InstancedCards({
       stateRef.current.mesh = null
       stateRef.current.opacities = null
       stateRef.current.uvOffsets = null
+      stateRef.current.lastUpdateTime = null
+      stateRef.current.nextDelay = null
     }
   }, [])
 
@@ -221,13 +229,20 @@ export function InstancedCards({
     const mesh = meshRef.current
     if (!atlas || !mesh || stateRef.current.initialized) return
 
+    // FIX (Rev 20): Get transition config
+    const { minDelay, maxDelay, minOpacity, maxOpacity } = SPHERE_CONFIG.cardTransition
+    const now = performance.now()
+
     // Create arrays
     const opacities = new Float32Array(count)
     const uvOffsets = new Float32Array(count * 2)
+    const lastUpdateTime = new Float32Array(count)
+    const nextDelay = new Float32Array(count)
 
-    // Initialize opacities and UV offsets
+    // Initialize opacities, UV offsets, and timing
     for (let i = 0; i < count; i++) {
-      opacities[i] = 0.4 + Math.random() * 0.5
+      // FIX (Rev 20): Use configurable opacity range
+      opacities[i] = minOpacity + Math.random() * (maxOpacity - minOpacity)
 
       // Random UV offset pointing to a random coupon in atlas
       const couponIndex = Math.floor(Math.random() * atlasCoupons.length)
@@ -236,11 +251,17 @@ export function InstancedCards({
 
       uvOffsets[i * 2] = col * atlas.cellUVWidth
       uvOffsets[i * 2 + 1] = row * atlas.cellUVHeight
+
+      // FIX (Rev 20): Stagger start times so not all cards switch at once
+      lastUpdateTime[i] = now - Math.random() * maxDelay
+      nextDelay[i] = minDelay + Math.random() * (maxDelay - minDelay)
     }
 
     // Store in stateRef for stable access in useFrame
     stateRef.current.opacities = opacities
     stateRef.current.uvOffsets = uvOffsets
+    stateRef.current.lastUpdateTime = lastUpdateTime
+    stateRef.current.nextDelay = nextDelay
     stateRef.current.mesh = mesh
 
     // Set geometry attributes
@@ -261,37 +282,51 @@ export function InstancedCards({
     stateRef.current.initialized = true
   }, [atlas, count, positions, geometry, dummy, atlasCoupons])
 
-  // Animate: random opacity + UV offset changes
-  // Use stateRef for stable access - avoids stale closure issues
+  // FIX (Rev 20): Animate using per-card delay timing
+  // Each card has its own delay before switching to a new coupon
+  // This creates more natural, less chaotic transitions
   useFrame(() => {
-    const { initialized, opacities, uvOffsets, mesh } = stateRef.current
-    if (!initialized || !opacities || !uvOffsets || !mesh || !atlas) return
+    const { initialized, opacities, uvOffsets, mesh, lastUpdateTime, nextDelay } = stateRef.current
+    if (!initialized || !opacities || !uvOffsets || !mesh || !atlas || !lastUpdateTime || !nextDelay) return
 
     const opacityAttr = mesh.geometry.attributes.instanceOpacity as THREE.BufferAttribute
     const uvOffsetAttr = mesh.geometry.attributes.instanceUvOffset as THREE.BufferAttribute
 
     if (!opacityAttr || !uvOffsetAttr) return
 
-    // Update configured percentage of cards per frame
-    const updateCount = Math.ceil(count * SPHERE_CONFIG.updatePercentPerFrame)
+    const now = performance.now()
+    const { minDelay, maxDelay, minOpacity, maxOpacity } = SPHERE_CONFIG.cardTransition
+    let needsUpdate = false
 
-    for (let i = 0; i < updateCount; i++) {
-      const randomIndex = Math.floor(Math.random() * count)
+    // Check each card if its delay has expired
+    for (let i = 0; i < count; i++) {
+      const elapsed = now - lastUpdateTime[i]
 
-      // New opacity
-      opacities[randomIndex] = 0.4 + Math.random() * 0.5
+      if (elapsed >= nextDelay[i]) {
+        // INSTANT switch: new coupon + new opacity
+        opacities[i] = minOpacity + Math.random() * (maxOpacity - minOpacity)
 
-      // New UV offset (new random coupon) - sync with opacity change
-      const newCouponIndex = Math.floor(Math.random() * atlasCoupons.length)
-      const col = newCouponIndex % atlas.cols
-      const row = Math.floor(newCouponIndex / atlas.cols)
+        // New random coupon
+        const newCouponIndex = Math.floor(Math.random() * atlasCoupons.length)
+        const col = newCouponIndex % atlas.cols
+        const row = Math.floor(newCouponIndex / atlas.cols)
 
-      uvOffsets[randomIndex * 2] = col * atlas.cellUVWidth
-      uvOffsets[randomIndex * 2 + 1] = row * atlas.cellUVHeight
+        uvOffsets[i * 2] = col * atlas.cellUVWidth
+        uvOffsets[i * 2 + 1] = row * atlas.cellUVHeight
+
+        // Reset timer with new random delay
+        lastUpdateTime[i] = now
+        nextDelay[i] = minDelay + Math.random() * (maxDelay - minDelay)
+
+        needsUpdate = true
+      }
     }
 
-    opacityAttr.needsUpdate = true
-    uvOffsetAttr.needsUpdate = true
+    // Only update GPU buffers if something changed
+    if (needsUpdate) {
+      opacityAttr.needsUpdate = true
+      uvOffsetAttr.needsUpdate = true
+    }
   })
 
   // Don't render if atlas not ready

@@ -36,6 +36,8 @@ interface DrawStateType {
   currentBatchIndex: number
   winners: DrawResultWithId[]
   currentPage: number
+  // FIX (Rev 20): Track which positions are newly redrawn for partial animation
+  redrawPositions: number[]
 }
 
 /**
@@ -54,7 +56,8 @@ type DrawAction =
   | { type: 'RESET' }
   | { type: 'INIT'; prizeIndex: number; batchIndex: number }
   // FIX (Rev 19): New action for redraw with animation
-  | { type: 'REDRAW_COMPLETE'; winners: DrawResultWithId[] }
+  // FIX (Rev 20): Include redrawPositions for partial animation
+  | { type: 'REDRAW_COMPLETE'; winners: DrawResultWithId[]; redrawPositions: number[] }
 
 const initialState: DrawStateType = {
   status: 'idle',
@@ -62,6 +65,7 @@ const initialState: DrawStateType = {
   currentBatchIndex: 0,
   winners: [],
   currentPage: 0,
+  redrawPositions: [],
 }
 
 /**
@@ -97,6 +101,7 @@ function drawReducer(state: DrawStateType, action: DrawAction): DrawStateType {
         ...state,
         status: 'revealing',
         winners: action.winners,
+        redrawPositions: [], // FIX (Rev 20): Clear - this is a fresh draw, not a redraw
       }
 
     case 'REVEAL_COMPLETE':
@@ -146,12 +151,14 @@ function drawReducer(state: DrawStateType, action: DrawAction): DrawStateType {
       return { ...state, winners: action.winners }
 
     // FIX (Rev 19): Redraw triggers revealing animation
+    // FIX (Rev 20): Store redrawPositions for partial animation
     case 'REDRAW_COMPLETE':
       return {
         ...state,
         status: 'revealing',
         winners: action.winners,
-        currentPage: 0, // Reset to first page
+        currentPage: 0,
+        redrawPositions: action.redrawPositions,
       }
 
     case 'RESET':
@@ -181,6 +188,8 @@ export interface UseDrawStateReturn {
   currentBatchIndex: number
   winners: DrawResultWithId[]
   currentPage: number
+  // FIX (Rev 20): Track which line numbers were just redrawn
+  redrawPositions: number[]
 
   // Computed
   isSpinning: boolean
@@ -351,6 +360,7 @@ export function useDrawState(): UseDrawStateReturn {
   // FIX (Rev 14): Add timestamp to redraw ID to ensure uniqueness across multiple redraws
   // FIX (Rev 18): Sort winners by lineNumber to maintain original position order
   // FIX (Rev 19): Use REDRAW_COMPLETE to trigger reveal animation, return true if redrawn
+  // FIX (Rev 20): Track redrawPositions for partial animation
   const redrawAll = useCallback(
     async (prizeId: string): Promise<boolean> => {
       try {
@@ -360,6 +370,9 @@ export function useDrawState(): UseDrawStateReturn {
         if (newResults.length === 0) {
           return false
         }
+
+        // FIX (Rev 20): Capture the line numbers being redrawn
+        const redrawPositions = newResults.map((r) => r.lineNumber)
 
         // Use timestamp to ensure unique IDs even after multiple redraws
         const timestamp = Date.now()
@@ -374,7 +387,8 @@ export function useDrawState(): UseDrawStateReturn {
         const sortedWinners = allWinners.sort((a, b) => a.lineNumber - b.lineNumber)
 
         // FIX (Rev 19): Use REDRAW_COMPLETE to trigger reveal animation
-        dispatch({ type: 'REDRAW_COMPLETE', winners: sortedWinners })
+        // FIX (Rev 20): Include redrawPositions for partial animation
+        dispatch({ type: 'REDRAW_COMPLETE', winners: sortedWinners, redrawPositions })
         return true
       } catch (error) {
         console.error('[useDrawState] Redraw failed:', error)
@@ -430,6 +444,7 @@ export function useDrawState(): UseDrawStateReturn {
     currentBatchIndex: state.currentBatchIndex,
     winners: state.winners,
     currentPage: state.currentPage,
+    redrawPositions: state.redrawPositions,
     isSpinning,
     isIdle,
     hasCancelled,

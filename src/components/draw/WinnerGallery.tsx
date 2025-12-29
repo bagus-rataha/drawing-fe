@@ -16,6 +16,8 @@ interface WinnerGalleryProps {
   currentPage: number
   onCancel: (winnerId: string) => void
   revealedCount: number // Controlled by parent
+  // FIX (Rev 20): Track which positions are being redrawn for targeted animation
+  redrawPositions?: number[]
 }
 
 export function WinnerGallery({
@@ -27,7 +29,11 @@ export function WinnerGallery({
   currentPage,
   onCancel,
   revealedCount,
+  redrawPositions = [],
 }: WinnerGalleryProps) {
+  // FIX (Rev 20): Create a Set for O(1) lookup of redraw positions
+  const redrawPositionSet = new Set(redrawPositions)
+  const isRedrawMode = redrawPositions.length > 0
   // Cards per page = gridX * gridY
   const cardsPerPage = gridX * gridY
   const cardsPerRow = gridX
@@ -75,7 +81,16 @@ export function WinnerGallery({
       {visibleWinners.map((winner, index) => {
         const absoluteIndex = startIndex + index
         const shouldShow = absoluteIndex < revealedCount
-        const isNewlyRevealed = absoluteIndex === revealedCount - 1
+
+        // FIX (Rev 20): Determine animation based on whether it's a redraw
+        let showAnimation = false
+        if (isRedrawMode) {
+          // In redraw mode: only animate cards at redrawn positions
+          showAnimation = redrawPositionSet.has(winner.lineNumber)
+        } else {
+          // Normal draw: animate newly revealed cards
+          showAnimation = absoluteIndex === revealedCount - 1
+        }
 
         if (!shouldShow) {
           // Empty placeholder while not yet revealed
@@ -94,7 +109,7 @@ export function WinnerGallery({
             displayMode={displayMode}
             onCancel={winner.id ? () => onCancel(winner.id!) : undefined}
             animationDelay={0}
-            showAnimation={isNewlyRevealed}
+            showAnimation={showAnimation}
           />
         )
       })}

@@ -195,7 +195,7 @@ export const EVENT_STATUS_COLORS: Record<string, string> = {
 /** Configuration for the 3D sphere animation on DrawScreen */
 export const SPHERE_CONFIG = {
   /** Number of cards displayed on sphere surface */
-  cardCount: 125,
+  cardCount: 140,
 
   /** Sphere radius in 3D units */
   radius: 6,
@@ -210,7 +210,7 @@ export const SPHERE_CONFIG = {
   cardHeight: 1.6,
 
   /** Card background color (hex) */
-  cardColor: '#e8b4c8',
+  cardColor: '#d87da0ff',
 
   /** Rotation speed when spinning (multiplier) */
   spinSpeed: 8,
@@ -238,11 +238,18 @@ export const SPHERE_CONFIG = {
   /** Number of columns in texture atlas */
   atlasColumns: 10,
 
-  /** Width of each cell in atlas (pixels) - FIX (Rev 19): Increased for sharper text */
-  atlasCellWidth: 256,
+  /**
+   * Texture scale multiplier for sharp text
+   * FIX (Rev 20): Use fixed scale instead of devicePixelRatio
+   * Higher = sharper text but more memory. Recommended: 3-4
+   */
+  textureScale: 3,
 
-  /** Height of each cell in atlas (pixels) - FIX (Rev 19): Increased for sharper text */
-  atlasCellHeight: 128,
+  /** Width of each cell in atlas (pixels, before scale) */
+  atlasCellWidth: 128,
+
+  /** Height of each cell in atlas (pixels, before scale) */
+  atlasCellHeight: 64,
 
   /** Maximum number of texts to include in atlas */
   atlasMaxTexts: 100,
@@ -276,21 +283,49 @@ export const SPHERE_CONFIG = {
   /** Font settings for card text */
   fontSettings: {
     /** Primary text color (name/participant ID) */
-    primaryColor: '#ffffffff',
+    primaryColor: '#eedbdbff',
 
     /** Secondary text color (coupon ID) */
-    secondaryColor: '#ffffffff',
+    secondaryColor: '#eedbdbff',
 
-    /** Font family */
-    family: 'Plus Jakarta Sans, Arial, sans-serif',
+    /** Font family - FIX (Rev 20): System fonts first for better rendering */
+    family: '-apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", Arial, sans-serif',
 
-    /** Font size for primary text - FIX (Rev 19): Increased for sharper text */
-    primarySize: 28,
+    /** Font size for primary text (before textureScale) */
+    primarySize: 16,
 
-    /** Font size for secondary text - FIX (Rev 19): Increased for sharper text */
-    secondarySize: 20,
+    /** Font size for secondary text (before textureScale) */
+    secondarySize: 12,
 
     /** Font weight for primary text */
     primaryWeight: 'bold' as const,
+  },
+
+  // ============================================
+  // CARD TRANSITION CONFIG (FIX Rev 20)
+  // ============================================
+
+  /** Card transition timing and opacity settings */
+  cardTransition: {
+    /**
+     * Minimum delay before card switches coupon (ms)
+     * Each card has its own random delay between min and max
+     */
+    minDelay: 500,
+
+    /**
+     * Maximum delay before card switches coupon (ms)
+     */
+    maxDelay: 3000,
+
+    /**
+     * Minimum opacity for cards (0-1)
+     */
+    minOpacity: 0.3,
+
+    /**
+     * Maximum opacity for cards (0-1)
+     */
+    maxOpacity: 1,
   },
 }
