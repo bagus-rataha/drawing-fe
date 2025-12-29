@@ -21,6 +21,8 @@ interface DrawControlsProps {
   // FIX (Rev 13): Loading states to disable buttons during async operations
   isRedrawing?: boolean
   isConfirming?: boolean
+  // FIX (Rev 18): Disable Start Draw when prize is fully drawn
+  isPrizeComplete?: boolean
 }
 
 export function DrawControls({
@@ -37,6 +39,7 @@ export function DrawControls({
   onPageChange,
   isRedrawing = false,
   isConfirming = false,
+  isPrizeComplete = false,
 }: DrawControlsProps) {
   const showPagination = status === 'reviewing' && totalPages > 1
 
@@ -44,6 +47,14 @@ export function DrawControls({
   const renderButton = () => {
     switch (status) {
       case 'idle':
+        // FIX (Rev 18): Show disabled state when prize is complete
+        if (isPrizeComplete) {
+          return (
+            <div className="px-8 py-3 bg-green-500 text-white font-medium rounded-full shadow-lg text-lg">
+              Prize Complete
+            </div>
+          )
+        }
         return (
           <button
             onClick={onStart}

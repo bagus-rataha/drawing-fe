@@ -3,7 +3,7 @@
  * @description Step 1: Event Info form component with date range picker
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { EventInfoFormData, WinRuleType } from '@/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,16 @@ interface StepEventInfoProps {
  */
 export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
   const [errors, setErrors] = useState<string[]>([])
+
+  // FIX (Rev 18): Responsive DatePicker - show 1 month on mobile, 2 on desktop
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -110,7 +120,7 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
               isClearable
               className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               calendarClassName="shadow-lg border rounded-lg"
-              monthsShown={2}
+              monthsShown={isMobile ? 1 : 2}
             />
           </div>
           <p className="text-sm text-muted-foreground">

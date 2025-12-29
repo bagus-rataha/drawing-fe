@@ -238,17 +238,36 @@ export const SPHERE_CONFIG = {
   /** Number of columns in texture atlas */
   atlasColumns: 10,
 
-  /** Width of each cell in atlas (pixels) */
-  atlasCellWidth: 128,
+  /** Width of each cell in atlas (pixels) - FIX (Rev 19): Increased for sharper text */
+  atlasCellWidth: 256,
 
-  /** Height of each cell in atlas (pixels) */
-  atlasCellHeight: 64,
+  /** Height of each cell in atlas (pixels) - FIX (Rev 19): Increased for sharper text */
+  atlasCellHeight: 128,
 
   /** Maximum number of texts to include in atlas */
   atlasMaxTexts: 100,
 
+  // ============================================
+  // ANIMATION TIMING CONFIG (FIX Rev 19)
+  // ============================================
+
   /** Percentage of cards to update per frame (0.02 = 2%) */
   updatePercentPerFrame: 0.02,
+
+  /** Animation timing configuration */
+  animation: {
+    /** Delay between each card reveal in ms */
+    revealInterval: 150,
+
+    /** Delay before transitioning to reviewing state after all cards revealed */
+    revealCompleteDelay: 300,
+
+    /** Delay before firing confetti after stop */
+    confettiDelay: 1000,
+
+    /** Delay before firing confetti after redraw */
+    redrawConfettiDelay: 800,
+  },
 
   // ============================================
   // FONT SETTINGS
@@ -257,19 +276,19 @@ export const SPHERE_CONFIG = {
   /** Font settings for card text */
   fontSettings: {
     /** Primary text color (name/participant ID) */
-    primaryColor: '#0a2540',
+    primaryColor: '#ffffffff',
 
     /** Secondary text color (coupon ID) */
-    secondaryColor: '#64748b',
+    secondaryColor: '#ffffffff',
 
     /** Font family */
     family: 'Plus Jakarta Sans, Arial, sans-serif',
 
-    /** Font size for primary text */
-    primarySize: 16,
+    /** Font size for primary text - FIX (Rev 19): Increased for sharper text */
+    primarySize: 28,
 
-    /** Font size for secondary text */
-    secondarySize: 12,
+    /** Font size for secondary text - FIX (Rev 19): Increased for sharper text */
+    secondarySize: 20,
 
     /** Font weight for primary text */
     primaryWeight: 'bold' as const,

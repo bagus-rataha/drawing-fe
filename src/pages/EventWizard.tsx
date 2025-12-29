@@ -442,22 +442,24 @@ export function EventWizard() {
         </div>
       )}
 
-      <main className="container py-8">
+      {/* FIX (Rev 18): Responsive container padding */}
+      <main className="container py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb & Title - aligned with form container */}
         <div className="mx-auto max-w-[832px]">
-          <Button variant="ghost" className="mb-2 -ml-4" asChild>
+          <Button variant="ghost" className="mb-2 -ml-2 sm:-ml-4" asChild>
             <Link to="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Events
+              <span className="hidden sm:inline">Back to Events</span>
+              <span className="sm:hidden">Back</span>
             </Link>
           </Button>
-          <h1 className="mb-6 text-3xl font-bold text-navy">
+          <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-navy">
             {isEditing ? 'Edit Event' : 'Create New Event'}
           </h1>
         </div>
 
         {/* Stepper */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8 overflow-x-auto">
           <WizardStepper
             currentStep={wizard.currentStep}
             onStepClick={setWizardStep}
@@ -465,7 +467,8 @@ export function EventWizard() {
         </div>
 
         {/* Step Content - Form Container */}
-        <div className="mx-auto max-w-[832px] rounded-xl bg-white p-8 shadow-card">
+        {/* FIX (Rev 18): Responsive padding */}
+        <div className="mx-auto max-w-[832px] rounded-xl bg-white p-4 sm:p-6 lg:p-8 shadow-card">
           {wizard.currentStep === 1 && (
             <StepEventInfo
               data={wizard.eventInfo}

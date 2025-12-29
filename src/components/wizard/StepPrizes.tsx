@@ -121,40 +121,80 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
 
   return (
     <Card ref={setNodeRef} style={style} className={isDragging ? 'shadow-lg' : ''}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <div
-          className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-5 w-5" />
-        </div>
-        {/* Prize Image Thumbnail */}
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-surface-alt">
-          {prize.image ? (
-            <img
-              src={prize.image}
-              alt={prize.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <ImageIcon className="h-5 w-5 text-content-muted" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">#{index + 1}</span>
-            <span className="truncate font-semibold">{prize.name}</span>
+      {/* FIX (Rev 18): Responsive layout - stack on mobile, row on desktop */}
+      <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div
+            className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-5 w-5" />
           </div>
-          <div className="text-sm text-muted-foreground">
-            {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} ·{' '}
-            {DRAW_MODE_LABELS[prize.drawMode]}
-            {prize.drawMode === 'batch' &&
-              prize.batches.length > 0 &&
-              ` (${prize.batches.join(', ')})`}
+          {/* Prize Image Thumbnail */}
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-surface-alt">
+            {prize.image ? (
+              <img
+                src={prize.image}
+                alt={prize.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-content-muted" />
+            )}
+          </div>
+          {/* Mobile: Name next to image */}
+          <div className="flex-1 min-w-0 sm:hidden">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">#{index + 1}</span>
+              <span className="truncate font-semibold text-sm">{prize.name}</span>
+            </div>
+          </div>
+          {/* Mobile: Action buttons */}
+          <div className="flex gap-1 sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onEdit(prize)}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onDelete(prize.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
+        {/* Desktop: Full info */}
+        <div className="hidden sm:flex flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">#{index + 1}</span>
+              <span className="truncate font-semibold">{prize.name}</span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} ·{' '}
+              {DRAW_MODE_LABELS[prize.drawMode]}
+              {prize.drawMode === 'batch' &&
+                prize.batches.length > 0 &&
+                ` (${prize.batches.join(', ')})`}
+            </div>
+          </div>
+        </div>
+        {/* Mobile: Details below */}
+        <div className="sm:hidden text-xs text-muted-foreground pl-8">
+          {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} · {DRAW_MODE_LABELS[prize.drawMode]}
+          {prize.drawMode === 'batch' &&
+            prize.batches.length > 0 &&
+            ` (${prize.batches.join(', ')})`}
+        </div>
+        {/* Desktop: Action buttons */}
+        <div className="hidden sm:flex gap-2">
           <Button
             variant="ghost"
             size="icon"

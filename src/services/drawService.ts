@@ -260,6 +260,12 @@ export const drawService: IDrawService = {
     console.log('[Draw] quantity:', quantity)
     console.log('[Draw] batchNumber:', batchNumber)
 
+    // FIX (Rev 18): Guard against drawing with quantity <= 0
+    if (quantity <= 0) {
+      console.log('[Draw] Quantity is 0 or less, nothing to draw')
+      return []
+    }
+
     const event = await eventRepository.getById(eventId)
     if (!event) {
       throw new Error(`Event with id ${eventId} not found`)

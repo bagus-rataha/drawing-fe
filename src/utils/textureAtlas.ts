@@ -81,20 +81,30 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
 
   const fontSettings = SPHERE_CONFIG.fontSettings
 
+  // FIX (Rev 19): Apply devicePixelRatio for sharper text on retina displays
+  const dpr = Math.min(window.devicePixelRatio || 1, 2) // Cap at 2x to avoid memory issues
+
   // Calculate grid dimensions
   const rows = Math.ceil(coupons.length / cols)
   const canvasWidth = cols * cellWidth
   const canvasHeight = rows * cellHeight
 
-  // Create canvas
+  // Create canvas with DPR scaling
   const canvas = document.createElement('canvas')
-  canvas.width = canvasWidth
-  canvas.height = canvasHeight
+  canvas.width = canvasWidth * dpr
+  canvas.height = canvasHeight * dpr
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
     throw new Error('Failed to get 2D canvas context')
   }
+
+  // Scale context for DPR
+  ctx.scale(dpr, dpr)
+
+  // Enable high-quality text rendering
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
 
   // Fill background
   ctx.fillStyle = bgColor
@@ -161,9 +171,10 @@ export function createTextureAtlas(config: AtlasConfig): AtlasResult {
   const texture = new THREE.CanvasTexture(canvas)
   texture.needsUpdate = true
 
-  // Use linear filtering for better text quality
-  texture.minFilter = THREE.LinearFilter
+  // FIX (Rev 19): Use linear mipmap filtering for better text quality at distance
+  texture.minFilter = THREE.LinearMipmapLinearFilter
   texture.magFilter = THREE.LinearFilter
+  texture.generateMipmaps = true
 
   return {
     texture,

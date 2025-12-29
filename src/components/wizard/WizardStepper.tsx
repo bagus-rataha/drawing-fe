@@ -17,8 +17,9 @@ interface WizardStepperProps {
  */
 export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) {
   return (
+    // FIX (Rev 18): Responsive stepper with min-width for horizontal scroll on mobile
     <div className="flex items-center justify-center">
-      <div className="flex items-center">
+      <div className="flex items-center min-w-max">
         {WIZARD_STEP_LABELS.map((label, index) => {
           const stepNumber = index + 1
           const isActive = stepNumber === currentStep
@@ -27,13 +28,13 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
 
           return (
             <div key={label} className="flex items-center">
-              {/* Step Circle */}
+              {/* Step Circle - smaller on mobile */}
               <button
                 type="button"
                 onClick={() => isClickable && onStepClick(stepNumber)}
                 disabled={!isClickable}
                 className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors',
+                  'flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs sm:text-sm font-medium transition-colors',
                   isCompleted && 'bg-success text-white',
                   isActive && 'bg-primary text-white',
                   !isActive && !isCompleted && 'bg-border-custom text-content-muted',
@@ -41,7 +42,7 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
                 )}
               >
                 {isCompleted ? (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-3 w-3 sm:h-4 sm:w-4" />
                 ) : (
                   stepNumber
                 )}
@@ -50,7 +51,7 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
               {/* Step Label (visible on larger screens) */}
               <span
                 className={cn(
-                  'ml-2 hidden text-sm md:inline',
+                  'ml-2 hidden text-sm lg:inline',
                   isCompleted && 'text-success',
                   isActive && 'font-semibold text-primary',
                   !isActive && !isCompleted && 'text-content-muted'
@@ -59,11 +60,11 @@ export function WizardStepper({ currentStep, onStepClick }: WizardStepperProps) 
                 {label}
               </span>
 
-              {/* Connector Line */}
+              {/* Connector Line - shorter on mobile */}
               {index < WIZARD_STEP_LABELS.length - 1 && (
                 <div
                   className={cn(
-                    'mx-4 h-0.5 w-12',
+                    'mx-2 sm:mx-4 h-0.5 w-6 sm:w-12',
                     stepNumber < currentStep ? 'bg-success' : 'bg-border-custom'
                   )}
                 />

@@ -53,6 +53,8 @@ type DrawAction =
   | { type: 'SET_WINNERS'; winners: DrawResultWithId[] }
   | { type: 'RESET' }
   | { type: 'INIT'; prizeIndex: number; batchIndex: number }
+  // FIX (Rev 19): New action for redraw with animation
+  | { type: 'REDRAW_COMPLETE'; winners: DrawResultWithId[] }
 
 const initialState: DrawStateType = {
   status: 'idle',
@@ -143,6 +145,15 @@ function drawReducer(state: DrawStateType, action: DrawAction): DrawStateType {
     case 'SET_WINNERS':
       return { ...state, winners: action.winners }
 
+    // FIX (Rev 19): Redraw triggers revealing animation
+    case 'REDRAW_COMPLETE':
+      return {
+        ...state,
+        status: 'revealing',
+        winners: action.winners,
+        currentPage: 0, // Reset to first page
+      }
+
     case 'RESET':
       return { ...initialState }
 
@@ -183,7 +194,8 @@ export interface UseDrawStateReturn {
   stop: (eventId: string, prizeId: string, quantity: number) => Promise<void>
   revealComplete: () => void
   cancel: (winnerId: string) => Promise<void>
-  redrawAll: (prizeId: string) => Promise<void>
+  // FIX (Rev 19): Returns true if redraw happened (for triggering confetti)
+  redrawAll: (prizeId: string) => Promise<boolean>
   confirm: (prizeId: string) => Promise<void>
   nextBatch: () => void
   nextPrize: () => void
@@ -337,10 +349,18 @@ export function useDrawState(): UseDrawStateReturn {
 
   // Redraw all cancelled
   // FIX (Rev 14): Add timestamp to redraw ID to ensure uniqueness across multiple redraws
+  // FIX (Rev 18): Sort winners by lineNumber to maintain original position order
+  // FIX (Rev 19): Use REDRAW_COMPLETE to trigger reveal animation, return true if redrawn
   const redrawAll = useCallback(
-    async (prizeId: string) => {
+    async (prizeId: string): Promise<boolean> => {
       try {
         const newResults = await drawService.redrawAll(prizeId, state.currentBatchIndex + 1)
+
+        // If no new results, nothing to redraw
+        if (newResults.length === 0) {
+          return false
+        }
+
         // Use timestamp to ensure unique IDs even after multiple redraws
         const timestamp = Date.now()
         const newResultsWithId: DrawResultWithId[] = newResults.map((r, i) => ({
@@ -349,9 +369,16 @@ export function useDrawState(): UseDrawStateReturn {
         }))
         // Replace cancelled winners with new results
         const validWinners = state.winners.filter((w) => w.status !== 'cancelled')
-        dispatch({ type: 'SET_WINNERS', winners: [...validWinners, ...newResultsWithId] })
+        // FIX (Rev 18): Sort by lineNumber to maintain original position order
+        const allWinners = [...validWinners, ...newResultsWithId]
+        const sortedWinners = allWinners.sort((a, b) => a.lineNumber - b.lineNumber)
+
+        // FIX (Rev 19): Use REDRAW_COMPLETE to trigger reveal animation
+        dispatch({ type: 'REDRAW_COMPLETE', winners: sortedWinners })
+        return true
       } catch (error) {
         console.error('[useDrawState] Redraw failed:', error)
+        return false
       }
     },
     [state.currentBatchIndex, state.winners]

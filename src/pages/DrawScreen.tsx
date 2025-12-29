@@ -17,6 +17,7 @@ import { WinnerGallery } from '@/components/draw/WinnerGallery'
 import { DrawControls } from '@/components/draw/DrawControls'
 import { PrizeWinnersModal } from '@/components/draw/PrizeWinnersModal'
 import { Confetti, fireConfettiBurst } from '@/components/draw/Confetti'
+import { SPHERE_CONFIG } from '@/utils/constants'
 import type { Event, Prize, WinnerDisplayMode } from '@/types'
 
 // Default grid configuration
@@ -78,6 +79,9 @@ export function DrawScreen() {
 
   const currentPrize = prizes[currentPrizeIndex] || null
   const displayMode: WinnerDisplayMode = event?.displaySettings?.winnerDisplayMode || 'coupon-participant-name'
+
+  // FIX (Rev 18): Calculate if current prize is complete (no remaining quantity)
+  const isPrizeComplete = currentPrize ? currentPrize.drawnCount >= currentPrize.quantity : false
 
   // Grid config from event settings
   const gridX = event?.displaySettings?.gridX || DEFAULT_GRID.gridX
@@ -211,12 +215,15 @@ export function DrawScreen() {
     revealCompleteCalledRef.current = false
     let currentCount = 0
 
-    const revealInterval = setInterval(() => {
+    // FIX (Rev 19): Use SPHERE_CONFIG for animation timing
+    const { revealInterval: interval, revealCompleteDelay } = SPHERE_CONFIG.animation
+
+    const revealIntervalId = setInterval(() => {
       currentCount++
       setRevealedCount(currentCount)
 
       if (currentCount >= animateCount) {
-        clearInterval(revealInterval)
+        clearInterval(revealIntervalId)
         // Immediately reveal all remaining cards (for other pages)
         setRevealedCount(winners.length)
 
@@ -227,11 +234,11 @@ export function DrawScreen() {
             console.log('[DrawScreen] Animation complete, calling revealComplete')
             revealComplete()
           }
-        }, 300)
+        }, revealCompleteDelay)
       }
-    }, 150) // Faster animation: 150ms between each card
+    }, interval)
 
-    return () => clearInterval(revealInterval)
+    return () => clearInterval(revealIntervalId)
   }, [state, winners.length, cardsPerPage, revealComplete])
 
   // When in reviewing state, show all cards
@@ -289,11 +296,11 @@ export function DrawScreen() {
 
     await stop(eventId, currentPrize.id, drawQuantity)
 
-    // Trigger confetti after revealing starts
+    // FIX (Rev 19): Use SPHERE_CONFIG for confetti timing
     setTimeout(() => {
       fireConfettiBurst()
       setShowConfetti(true)
-    }, 1000)
+    }, SPHERE_CONFIG.animation.confettiDelay)
   }, [eventId, currentPrize, stop, getDrawQuantity, state])
 
   // Handle cancel winner
@@ -306,12 +313,21 @@ export function DrawScreen() {
 
   // Handle redraw all
   // FIX (Rev 13): Add loading state and guard to prevent double-clicks
+  // FIX (Rev 19): Fire confetti after successful redraw
   const handleRedrawAll = useCallback(async () => {
     if (!currentPrize || isRedrawing) return
 
     setIsRedrawing(true)
     try {
-      await redrawAll(currentPrize.id)
+      const didRedraw = await redrawAll(currentPrize.id)
+
+      // FIX (Rev 19): Fire confetti if redraw was successful
+      if (didRedraw) {
+        setTimeout(() => {
+          fireConfettiBurst()
+          setShowConfetti(true)
+        }, SPHERE_CONFIG.animation.redrawConfettiDelay)
+      }
     } finally {
       setIsRedrawing(false)
     }
@@ -507,6 +523,7 @@ export function DrawScreen() {
         onPageChange={setCurrentPage}
         isRedrawing={isRedrawing}
         isConfirming={isConfirming}
+        isPrizeComplete={isPrizeComplete}
       />
 
       {/* Prize Winners Modal */}
