@@ -380,10 +380,13 @@ export function useDrawState(): UseDrawStateReturn {
           ...r,
           id: `${prizeId}-${state.currentBatchIndex + 1}-redraw-${timestamp}-${i}`,
         }))
-        // Replace cancelled winners with new results
-        const validWinners = state.winners.filter((w) => w.status !== 'cancelled')
-        // FIX (Rev 18): Sort by lineNumber to maintain original position order
-        const allWinners = [...validWinners, ...newResultsWithId]
+        // FIX (Rev 21): Filter by lineNumber instead of status to prevent duplicates
+        // This removes ALL winners at redrawn positions (regardless of their status)
+        // Then adds new winners at those exact positions - no duplicates possible
+        const winnersToKeep = state.winners.filter(
+          (w) => !redrawPositions.includes(w.lineNumber)
+        )
+        const allWinners = [...winnersToKeep, ...newResultsWithId]
         const sortedWinners = allWinners.sort((a, b) => a.lineNumber - b.lineNumber)
 
         // FIX (Rev 19): Use REDRAW_COMPLETE to trigger reveal animation
