@@ -1,6 +1,6 @@
 /**
  * @file components/wizard/StepEventInfo.tsx
- * @description Step 1: Event Info form component with date range picker
+ * @description Step 1: Event Info form with draw mode and animation type
  */
 
 import { useState, useEffect } from 'react'
@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { validateEventInfo } from '@/services/validationService'
-import { WIN_RULE_LABELS } from '@/utils/constants'
+import { WIN_RULE_LABELS, DRAW_MODE_LABELS, ANIMATION_TYPE_LABELS } from '@/utils/constants'
 import { AlertCircle, ArrowRight, CalendarIcon } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -29,14 +30,10 @@ interface StepEventInfoProps {
   onNext: () => void
 }
 
-/**
- * Step 1: Event Info form
- * Collects event name, description, and win rules
- */
 export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
   const [errors, setErrors] = useState<string[]>([])
 
-  // FIX (Rev 18): Responsive DatePicker - show 1 month on mobile, 2 on desktop
+  // Responsive DatePicker
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -64,7 +61,6 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
     setErrors([])
   }
 
-  // Handle date range selection from react-datepicker
   const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
     onUpdate({
@@ -151,7 +147,7 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
-            {data.winRuleType === 'one-time' &&
+            {data.winRuleType === 'onetime' &&
               'Each participant can only win once across all prizes'}
             {data.winRuleType === 'limited' &&
               'Each participant can win up to N times'}
@@ -181,6 +177,56 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
             </p>
           </div>
         )}
+
+        {/* Draw Mode */}
+        <div className="space-y-2">
+          <Label>
+            Draw Mode <span className="text-destructive">*</span>
+          </Label>
+          <RadioGroup
+            value={data.drawMode}
+            onValueChange={(value) => handleChange('drawMode', value)}
+            className="flex gap-4"
+          >
+            {Object.entries(DRAW_MODE_LABELS).map(([value, label]) => (
+              <div key={value} className="flex items-center space-x-2">
+                <RadioGroupItem value={value} id={`drawMode-${value}`} />
+                <Label htmlFor={`drawMode-${value}`} className="cursor-pointer">
+                  {label}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <p className="text-sm text-muted-foreground">
+            {data.drawMode === 'one_by_one'
+              ? 'Draw winners one at a time'
+              : 'Draw winners in batches per prize'}
+          </p>
+        </div>
+
+        {/* Animation Type */}
+        <div className="space-y-2">
+          <Label>
+            Animation Type <span className="text-destructive">*</span>
+          </Label>
+          <RadioGroup
+            value={data.animationType}
+            onValueChange={(value) => handleChange('animationType', value)}
+            className="flex gap-4"
+          >
+            {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => (
+              <div key={value} className="flex items-center space-x-2">
+                <RadioGroupItem value={value} id={`animationType-${value}`} />
+                <Label htmlFor={`animationType-${value}`} className="cursor-pointer">
+                  {label}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <p className="text-sm text-muted-foreground">
+            Animation style for the draw screen
+          </p>
+        </div>
       </div>
 
       {/* Validation Errors */}

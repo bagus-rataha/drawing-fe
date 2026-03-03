@@ -42,7 +42,7 @@ export function ImportProgress({ phase, progress, message }: ImportProgressProps
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full rounded-full bg-primary transition-[width] duration-150 ease-out"
+                className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
                 style={{ width: `${roundedProgress}%` }}
               />
             </div>

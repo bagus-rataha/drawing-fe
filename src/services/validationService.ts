@@ -102,20 +102,6 @@ export function validatePrize(data: PrizeFormData): ValidationResult {
     errors.push(`Quantity cannot exceed ${MAX_PRIZE_QUANTITY}`)
   }
 
-  // Batch validation for batch mode
-  if (data.drawMode === 'batch') {
-    if (!data.batches || data.batches.length === 0) {
-      errors.push('At least one batch is required for batch draw mode')
-    } else {
-      const totalBatch = data.batches.reduce((sum, b) => sum + b, 0)
-      if (totalBatch !== data.quantity) {
-        errors.push(
-          `Batch total (${totalBatch}) must equal prize quantity (${data.quantity})`
-        )
-      }
-    }
-  }
-
   return {
     isValid: errors.length === 0,
     errors,
@@ -167,10 +153,11 @@ export function canParticipantWin(
 
   switch (winRule.type) {
     case 'one-time':
+    case 'onetime':
       if (totalWins >= 1) {
         return {
           canWin: false,
-          reason: `Participant already won (one-time rule)`,
+          reason: `Participant already won (onetime rule)`,
         }
       }
       break
@@ -211,10 +198,11 @@ export function shouldAutoCancel(
 
   switch (winRule.type) {
     case 'one-time':
+    case 'onetime':
       if (existingWins >= 1 || winsInBatch >= 1) {
         return {
           shouldCancel: true,
-          reason: `One-time win rule: already won ${existingWins + winsInBatch} time(s)`,
+          reason: `Onetime win rule: already won ${existingWins + winsInBatch} time(s)`,
         }
       }
       break
@@ -294,7 +282,7 @@ export function validatePreDraw(
   }
 
   // Check win rule compatibility
-  if (event.winRule.type === 'one-time') {
+  if (event.winRule.type === 'onetime' || event.winRule.type === 'one-time') {
     if (event.totalParticipants < totalPrizeQuantity) {
       errors.push(
         `Not enough unique participants (${event.totalParticipants}) for total prizes (${totalPrizeQuantity}) ` +

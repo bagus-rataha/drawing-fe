@@ -28,7 +28,7 @@ export type EventStatus = 'draft' | 'ready' | 'in_progress' | 'completed'
  * - limited: Participant can win up to N times (configurable)
  * - unlimited: No restriction on number of wins
  */
-export type WinRuleType = 'one-time' | 'limited' | 'unlimited'
+export type WinRuleType = 'one-time' | 'onetime' | 'limited' | 'unlimited'
 
 /**
  * Draw mode determines how winners are selected for a prize
@@ -36,20 +36,17 @@ export type WinRuleType = 'one-time' | 'limited' | 'unlimited'
  * - batch: Draw winners in configured batch sizes
  * - one-by-one: Draw winners individually
  */
-export type DrawMode = 'all-at-once' | 'batch' | 'one-by-one'
+export type DrawMode = 'all-at-once' | 'batch' | 'one-by-one' | 'one_by_one'
 
 /**
- * Animation type for the draw screen (Phase 2)
+ * Animation type for the draw screen
  */
-export type AnimationType = '3d-sphere' | 'particle'
+export type AnimationType = '3d-sphere' | 'particle' | 'sphere' | 'rolling' | 'randomize'
 
 /**
  * Winner display mode for the draw screen
- * - coupon-only: Show only coupon ID
- * - coupon-participant-id: Show coupon ID + participant ID
- * - coupon-participant-name: Show coupon ID + participant name
  */
-export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupon-participant-name'
+export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupon-participant-name' | 'coupon_only' | 'coupon_and_participant'
 
 /**
  * Coupon status
@@ -411,6 +408,8 @@ export interface EventInfoFormData {
   endDate: Date | null
   winRuleType: WinRuleType
   maxWins: number
+  drawMode: 'one_by_one' | 'batch'
+  animationType: 'sphere' | 'rolling' | 'randomize'
 }
 
 /**
@@ -421,31 +420,15 @@ export interface PrizeFormData {
   name: string
   image?: string
   quantity: number
-  drawMode: DrawMode
-  batches: number[]
+  batchNumber: number
 }
 
 /**
- * Data for Step 4: Display Settings
+ * Data for Step 3: Display Settings (UI-only, not sent to API)
  */
 export interface DisplaySettingsFormData {
   backgroundImage?: string
-  animationType: AnimationType
-  winnerDisplayMode: WinnerDisplayMode
-  customFieldsToShow: string[]
-  gridX: number
-  gridY: number
-}
-
-/**
- * Complete wizard state
- */
-export interface WizardState {
-  currentStep: number
-  eventInfo: EventInfoFormData
-  prizes: PrizeFormData[]
-  displaySettings: DisplaySettingsFormData
-  importStats: ImportStats | null
+  winnerDisplayMode: 'coupon_only' | 'coupon_and_participant'
 }
 
 // ============================================

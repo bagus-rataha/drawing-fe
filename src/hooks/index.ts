@@ -1,8 +1,3 @@
-/**
- * @file hooks/index.ts
- * @description Export all custom hooks
- */
-
 // Event hooks
 export {
   useEvents,
@@ -10,9 +5,7 @@ export {
   useCreateEvent,
   useUpdateEvent,
   useDeleteEvent,
-  useUpdateEventStatus,
-  useDuplicateEvent,
-  useUpdateEventStats,
+  useImportParticipants,
   eventKeys,
 } from './useEvents'
 
@@ -20,48 +13,14 @@ export {
 export {
   usePrizes,
   usePrize,
-  useCreatePrize,
-  useCreateManyPrizes,
-  useUpdatePrize,
+  useCreatePrizes,
+  useBulkUpdatePrizes,
   useDeletePrize,
-  useDeletePrizesByEvent,
-  useReorderPrizes,
-  useTotalPrizeQuantity,
   prizeKeys,
 } from './usePrizes'
 
-// Participant hooks
-export {
-  useParticipants,
-  useParticipantsPaginated,
-  useParticipant,
-  useParticipantCount,
-  useActiveParticipants,
-  useCreateManyParticipants,
-  useDeleteParticipantsByEvent,
-  useDeleteParticipant,
-  useIncrementParticipantWinCount,
-  participantKeys,
-} from './useParticipants'
-
-// Coupon hooks
-export {
-  useCoupons,
-  useCouponsPaginated,
-  useCoupon,
-  useCouponsByParticipant,
-  useActiveCoupons,
-  useCouponCount,
-  useActiveCouponCount,
-  useCouponCountsByParticipants,
-  useCreateManyCoupons,
-  useDeleteCouponsByEvent,
-  useDeleteCoupon,
-  useDeleteCouponsByParticipant,
-  useVoidCoupon,
-  useVoidCouponsByParticipant,
-  couponKeys,
-} from './useCoupons'
+// Auth hooks
+export { useLogin, useLogout } from './useAuth'
 
 // Winner hooks
 export {

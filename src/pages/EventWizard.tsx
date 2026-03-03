@@ -1,84 +1,37 @@
 /**
  * @file pages/EventWizard.tsx
- * @description Event creation/editing wizard page
- *
- * Routes:
- * - /event/new : Create new event
- * - /event/:id/edit : Edit existing event
+ * @description Event creation wizard page (4 steps: Info → Prizes → Display → Review)
  */
 
-import { useEffect, useState, useRef, useMemo } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import {
   WizardStepper,
   StepEventInfo,
   StepPrizes,
-  StepParticipants,
   StepDisplay,
   StepReview,
 } from '@/components/wizard'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
-import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft } from 'lucide-react'
 import { useEventStore } from '@/stores'
-import {
-  useEvent,
-  usePrizes,
-  useParticipantCount,
-  useCouponCount,
-  useCreateEvent,
-  useUpdateEvent,
-  useCreateManyPrizes,
-  useDeletePrizesByEvent,
-  useCreateManyParticipants,
-  useCreateManyCoupons,
-  useDeleteParticipantsByEvent,
-  useDeleteCouponsByEvent,
-  useUpdateEventStats,
-  useDeleteParticipant,
-  useDeleteCoupon,
-  useUnsavedChangesWarning,
-} from '@/hooks'
-import type { PrizeFormData, ImportStats, Participant, Coupon } from '@/types'
-import { generateId } from '@/utils/helpers'
+import { useCreateEvent, useUnsavedChangesWarning } from '@/hooks'
+import type { CreateEventRequest, PrizeRequest } from '@/types/api'
 
 /**
- * Event Wizard page component
+ * Event Wizard page component (create-only)
  */
 export function EventWizard() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const isEditing = !!id
-
-  // Fetch existing event data if editing
-  const { data: existingEvent, isLoading: isLoadingEvent } = useEvent(id)
-  const { data: existingPrizes = [], isLoading: isLoadingPrizes } = usePrizes(id)
-  // Use count queries instead of fetching all data (for performance)
-  const { data: participantCount = 0, isLoading: isLoadingParticipantCount } = useParticipantCount(id)
-  const { data: couponCount = 0, isLoading: isLoadingCouponCount } = useCouponCount(id)
-  const hasExistingData = participantCount > 0 || couponCount > 0
 
   // Mutations
   const createEvent = useCreateEvent()
-  const updateEvent = useUpdateEvent()
-  const createManyPrizes = useCreateManyPrizes()
-  const deletePrizesByEvent = useDeletePrizesByEvent()
-  const createManyParticipants = useCreateManyParticipants()
-  const createManyCoupons = useCreateManyCoupons()
-  const deleteParticipantsByEvent = useDeleteParticipantsByEvent()
-  const deleteCouponsByEvent = useDeleteCouponsByEvent()
-  const updateEventStats = useUpdateEventStats()
-  const deleteParticipant = useDeleteParticipant()
-  const deleteCoupon = useDeleteCoupon()
 
   // Store
   const {
     wizard,
-    pendingDeletes,
-    isWizardInitialized,
     setWizardStep,
     nextStep,
     prevStep,
@@ -86,354 +39,61 @@ export function EventWizard() {
     setEventInfo,
     setPrizes,
     setDisplaySettings,
-    setImportStats,
-    initWizardForEdit,
-    clearPendingDeletes,
   } = useEventStore()
-
-  const { toast } = useToast()
-  const [isSaving, setIsSaving] = useState(false)
-  const [tempEventId, setTempEventId] = useState<string | null>(null)
-  const [importedParticipants, setImportedParticipants] = useState<Participant[]>([])
-  const [importedCoupons, setImportedCoupons] = useState<Coupon[]>([])
-
-  // Track whether wizard has been initialized for the current event (prevents infinite loop)
-  const initializedEventIdRef = useRef<string | null>(null)
 
   // Detect unsaved changes for browser refresh warning
   const hasUnsavedChanges = useMemo(() => {
-    // Create mode: any wizard data counts as unsaved
-    if (!isEditing) {
-      const hasEventInfo = wizard.eventInfo.name.trim() !== ''
-      const hasPrizes = wizard.prizes.length > 0
-      const hasParticipants = importedParticipants.length > 0
-      return hasEventInfo || hasPrizes || hasParticipants
-    }
-
-    // Edit mode: check for pending deletes or imported data changes
-    const hasPendingDeletes =
-      pendingDeletes.participantIds.length > 0 ||
-      pendingDeletes.couponIds.length > 0
-    const hasNewImport = importedParticipants.length > 0
-
-    return hasPendingDeletes || hasNewImport
-  }, [isEditing, wizard.eventInfo.name, wizard.prizes.length, importedParticipants.length, pendingDeletes])
+    const hasEventInfo = wizard.eventInfo.name.trim() !== ''
+    const hasPrizes = wizard.prizes.length > 0
+    return hasEventInfo || hasPrizes
+  }, [wizard.eventInfo.name, wizard.prizes.length])
 
   // Warn user before leaving page with unsaved changes
   useUnsavedChangesWarning(hasUnsavedChanges)
 
-  // Initialize wizard for editing (with guard to prevent infinite loop)
-  // IMPORTANT: Must wait for BOTH event AND prizes to finish loading before initializing
+  // Reset wizard on mount
   useEffect(() => {
-    if (
-      isEditing &&
-      existingEvent &&
-      !isLoadingPrizes && // Ensure prizes are fully loaded (not just default empty array)
-      initializedEventIdRef.current !== existingEvent.id
-    ) {
-      const prizeFormData: PrizeFormData[] = existingPrizes.map((p) => ({
-        id: p.id,
-        name: p.name,
-        image: p.image,
-        quantity: p.quantity,
-        drawMode: p.drawConfig.mode,
-        batches: p.drawConfig.batches || [],
-      }))
-      initWizardForEdit(existingEvent, prizeFormData)
-      initializedEventIdRef.current = existingEvent.id
-    }
-  }, [isEditing, existingEvent, existingPrizes, isLoadingPrizes, initWizardForEdit])
+    resetWizard()
+  }, [resetWizard])
 
-  // Reset wizard on unmount or when creating new
-  useEffect(() => {
-    if (!isEditing) {
-      resetWizard()
-      setTempEventId(generateId())
-      initializedEventIdRef.current = null
-    }
-    return () => {
-      // Cleanup if needed
-    }
-  }, [isEditing, resetWizard])
+  // Handle create event submission
+  const handleCreate = async () => {
+    const { eventInfo, prizes } = wizard
 
-  // Get the effective event ID (existing or temporary)
-  const eventId = id || tempEventId || ''
-
-  // Handle import
-  const handleImport = (
-    participants: { id: string; eventId: string; name?: string; customFields: Record<string, string>; couponCount: number }[],
-    coupons: { id: string; eventId: string; participantId: string; weight: number }[],
-    stats: ImportStats
-  ) => {
-    // Convert to full Participant type with defaults
-    const fullParticipants: Participant[] = participants.map((p) => ({
-      ...p,
-      winCount: 0,
-      status: 'active' as const,
+    // Build prizes payload
+    const prizeRequests: PrizeRequest[] = prizes.map((p, index) => ({
+      name: p.name,
+      quantity: p.quantity,
+      sequence: index + 1,
+      batch_number: eventInfo.drawMode === 'batch' ? p.batchNumber : 1,
     }))
-    // Convert to full Coupon type with defaults
-    const fullCoupons: Coupon[] = coupons.map((c) => ({
-      ...c,
-      status: 'active' as const,
-    }))
-    setImportedParticipants(fullParticipants)
-    setImportedCoupons(fullCoupons)
-    setImportStats(stats)
-  }
 
-  // Save as draft
-  const handleSaveDraft = async () => {
-    if (isSaving) return // Prevent double-click
+    // Build request
+    const request: CreateEventRequest = {
+      name: eventInfo.name,
+      description: eventInfo.description || undefined,
+      start_date: eventInfo.startDate?.toISOString(),
+      end_date: eventInfo.endDate?.toISOString(),
+      win_rule: eventInfo.winRuleType as 'onetime' | 'limited' | 'unlimited',
+      draw_mode: eventInfo.drawMode as 'one_by_one' | 'batch',
+      animation_type: eventInfo.animationType as 'sphere' | 'rolling' | 'randomize',
+      prizes: prizeRequests,
+    }
 
-    setIsSaving(true)
     try {
-      await saveEvent('draft')
-      toast({
-        title: 'Draft Saved',
-        description: 'Event has been saved as draft.',
-      })
-      navigate('/', { replace: true })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save event. Please try again.',
-        variant: 'destructive',
-      })
-      setIsSaving(false) // Only reset on error
+      const newEvent = await createEvent.mutateAsync(request)
+      navigate(`/events/${newEvent.id}`, { replace: true })
+    } catch {
+      // Error toast is handled by the hook
     }
   }
-
-  // Save and mark as ready
-  const handleSaveAndStart = async () => {
-    if (isSaving) return // Prevent double-click
-
-    setIsSaving(true)
-    try {
-      await saveEvent('ready')
-      toast({
-        title: 'Event Ready',
-        description: 'Event has been saved and is ready to start.',
-      })
-      navigate('/', { replace: true })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save event. Please try again.',
-        variant: 'destructive',
-      })
-      setIsSaving(false) // Only reset on error
-    }
-  }
-
-  // Core save logic
-  const saveEvent = async (status: 'draft' | 'ready') => {
-    const { eventInfo, prizes, displaySettings, importStats } = wizard
-
-    if (isEditing && id) {
-      // Update existing event
-      await updateEvent.mutateAsync({
-        id,
-        data: {
-          name: eventInfo.name,
-          description: eventInfo.description || undefined,
-          startDate: eventInfo.startDate || undefined,
-          endDate: eventInfo.endDate || undefined,
-          winRule: {
-            type: eventInfo.winRuleType,
-            maxWins:
-              eventInfo.winRuleType === 'limited' ? eventInfo.maxWins : undefined,
-          },
-          displaySettings: {
-            backgroundImage: displaySettings.backgroundImage,
-            animationType: displaySettings.animationType,
-            winnerDisplayMode: displaySettings.winnerDisplayMode,
-            customFieldsToShow: displaySettings.customFieldsToShow,
-            gridX: displaySettings.gridX,
-            gridY: displaySettings.gridY,
-          },
-          totalPrizes: prizes.length,
-          status,
-        },
-      })
-
-      // Update prizes (delete old, create new)
-      await deletePrizesByEvent.mutateAsync(id)
-      if (prizes.length > 0) {
-        await createManyPrizes.mutateAsync(
-          prizes.map((p, index) => ({
-            eventId: id,
-            name: p.name,
-            image: p.image,
-            quantity: p.quantity,
-            sequence: index + 1,
-            drawConfig: {
-              mode: p.drawMode,
-              batches: p.drawMode === 'batch' ? p.batches : undefined,
-            },
-          }))
-        )
-      }
-
-      // Handle participants/coupons if re-imported
-      if (importedParticipants.length > 0) {
-        await deleteParticipantsByEvent.mutateAsync(id)
-        await deleteCouponsByEvent.mutateAsync(id)
-
-        await createManyParticipants.mutateAsync(
-          importedParticipants.map((p) => ({
-            id: p.id,
-            eventId: id,
-            name: p.name,
-            email: p.email,
-            phone: p.phone,
-            customFields: p.customFields,
-            couponCount: p.couponCount,
-          }))
-        )
-
-        await createManyCoupons.mutateAsync(
-          importedCoupons.map((c) => ({
-            id: c.id,
-            eventId: id,
-            participantId: c.participantId,
-            weight: c.weight,
-          }))
-        )
-
-        await updateEventStats.mutateAsync({
-          id,
-          stats: {
-            totalParticipants: importStats?.uniqueParticipants || 0,
-            totalCoupons: importStats?.totalCoupons || 0,
-          },
-        })
-
-        // Clear pending deletes since we re-imported everything
-        clearPendingDeletes()
-      } else if (pendingDeletes.couponIds.length > 0 || pendingDeletes.participantIds.length > 0) {
-        // Execute pending deletes (atomic edit)
-        // Delete coupons first (before participants, to avoid cascade issues)
-        for (const couponId of pendingDeletes.couponIds) {
-          await deleteCoupon.mutateAsync({ id: couponId, eventId: id })
-        }
-
-        // Delete participants (will cascade delete their coupons too)
-        for (const participantId of pendingDeletes.participantIds) {
-          await deleteParticipant.mutateAsync({ id: participantId, eventId: id })
-        }
-
-        // Clear pending deletes after execution
-        clearPendingDeletes()
-      }
-    } else {
-      // Create new event
-      const newEvent = await createEvent.mutateAsync({
-        name: eventInfo.name,
-        description: eventInfo.description || undefined,
-        startDate: eventInfo.startDate || undefined,
-        endDate: eventInfo.endDate || undefined,
-        winRule: {
-          type: eventInfo.winRuleType,
-          maxWins:
-            eventInfo.winRuleType === 'limited' ? eventInfo.maxWins : undefined,
-        },
-        displaySettings: {
-          backgroundImage: displaySettings.backgroundImage,
-          animationType: displaySettings.animationType,
-          winnerDisplayMode: displaySettings.winnerDisplayMode,
-          customFieldsToShow: displaySettings.customFieldsToShow,
-          gridX: displaySettings.gridX,
-          gridY: displaySettings.gridY,
-        },
-      })
-
-      // Create prizes
-      if (prizes.length > 0) {
-        await createManyPrizes.mutateAsync(
-          prizes.map((p, index) => ({
-            eventId: newEvent.id,
-            name: p.name,
-            image: p.image,
-            quantity: p.quantity,
-            sequence: index + 1,
-            drawConfig: {
-              mode: p.drawMode,
-              batches: p.drawMode === 'batch' ? p.batches : undefined,
-            },
-          }))
-        )
-      }
-
-      // Update stats (including totalPrizes)
-      await updateEventStats.mutateAsync({
-        id: newEvent.id,
-        stats: {
-          totalPrizes: prizes.length,
-          totalParticipants: importStats?.uniqueParticipants || 0,
-          totalCoupons: importStats?.totalCoupons || 0,
-        },
-      })
-
-      // Create participants and coupons
-      if (importedParticipants.length > 0) {
-        await createManyParticipants.mutateAsync(
-          importedParticipants.map((p) => ({
-            id: p.id,
-            eventId: newEvent.id,
-            name: p.name,
-            email: p.email,
-            phone: p.phone,
-            customFields: p.customFields,
-            couponCount: p.couponCount,
-          }))
-        )
-
-        await createManyCoupons.mutateAsync(
-          importedCoupons.map((c) => ({
-            id: c.id,
-            eventId: newEvent.id,
-            participantId: c.participantId,
-            weight: c.weight,
-          }))
-        )
-      }
-
-      // Update status if ready
-      if (status === 'ready') {
-        await updateEvent.mutateAsync({
-          id: newEvent.id,
-          data: { status: 'ready' },
-        })
-      }
-    }
-  }
-
-  // Loading state - wait for both query loading AND wizard initialization
-  // isWizardInitialized ensures store is populated before rendering wizard steps
-  if (isEditing && (isLoadingEvent || isLoadingPrizes || isLoadingParticipantCount || isLoadingCouponCount || !isWizardInitialized)) {
-    return (
-      <div className="min-h-screen bg-surface-alt">
-        <Header />
-        <main className="container py-8">
-          <Skeleton className="mb-4 h-8 w-48" />
-          <Skeleton className="mb-8 h-12 w-full" />
-          <div className="mx-auto max-w-[832px]">
-            <Skeleton className="h-96 w-full rounded-xl" />
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  // Get available custom fields from import stats
-  const availableCustomFields = wizard.importStats?.customFields || []
 
   return (
     <div className="min-h-screen bg-surface-alt">
       <Header />
 
       {/* Full-screen save loading overlay */}
-      {isSaving && (
+      {createEvent.isPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-8 shadow-modal">
             <Spinner size="lg" />
@@ -442,9 +102,8 @@ export function EventWizard() {
         </div>
       )}
 
-      {/* FIX (Rev 18): Responsive container padding */}
       <main className="container py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb & Title - aligned with form container */}
+        {/* Breadcrumb & Title */}
         <div className="mx-auto max-w-[832px]">
           <Button variant="ghost" className="mb-2 -ml-2 sm:-ml-4" asChild>
             <Link to="/">
@@ -454,7 +113,7 @@ export function EventWizard() {
             </Link>
           </Button>
           <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-navy">
-            {isEditing ? 'Edit Event' : 'Create New Event'}
+            Create New Event
           </h1>
         </div>
 
@@ -466,8 +125,7 @@ export function EventWizard() {
           />
         </div>
 
-        {/* Step Content - Form Container */}
-        {/* FIX (Rev 18): Responsive padding */}
+        {/* Step Content */}
         <div className="mx-auto max-w-[832px] rounded-xl bg-white p-4 sm:p-6 lg:p-8 shadow-card">
           {wizard.currentStep === 1 && (
             <StepEventInfo
@@ -480,6 +138,7 @@ export function EventWizard() {
           {wizard.currentStep === 2 && (
             <StepPrizes
               prizes={wizard.prizes}
+              drawMode={wizard.eventInfo.drawMode}
               onUpdate={setPrizes}
               onNext={nextStep}
               onPrev={prevStep}
@@ -487,35 +146,20 @@ export function EventWizard() {
           )}
 
           {wizard.currentStep === 3 && (
-            <StepParticipants
-              eventId={eventId}
-              importStats={wizard.importStats}
-              hasExistingData={isEditing && hasExistingData}
-              importedParticipants={importedParticipants}
-              importedCoupons={importedCoupons}
-              onImport={handleImport}
-              onNext={nextStep}
-              onPrev={prevStep}
-            />
-          )}
-
-          {wizard.currentStep === 4 && (
             <StepDisplay
               data={wizard.displaySettings}
-              availableCustomFields={availableCustomFields}
               onUpdate={setDisplaySettings}
               onNext={nextStep}
               onPrev={prevStep}
             />
           )}
 
-          {wizard.currentStep === 5 && (
+          {wizard.currentStep === 4 && (
             <StepReview
-              wizardState={wizard}
-              isSaving={isSaving}
+              wizard={wizard}
+              isSaving={createEvent.isPending}
               onPrev={prevStep}
-              onSaveDraft={handleSaveDraft}
-              onSaveAndStart={handleSaveAndStart}
+              onCreate={handleCreate}
             />
           )}
         </div>

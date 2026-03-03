@@ -1,53 +1,30 @@
 /**
  * @file components/wizard/StepDisplay.tsx
- * @description Step 4: Display Settings component with winner display mode options
+ * @description Step 3: Display Settings (simplified, with future notice badge)
  */
 
-import type { DisplaySettingsFormData, AnimationType, WinnerDisplayMode } from '@/types'
+import type { DisplaySettingsFormData } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { ArrowLeft, ArrowRight, Upload, X, Image } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Upload, X, Image, Info } from 'lucide-react'
 import { WINNER_DISPLAY_MODE_LABELS } from '@/utils/constants'
 
 interface StepDisplayProps {
   data: DisplaySettingsFormData
-  availableCustomFields: string[]
-  hasParticipantName?: boolean
   onUpdate: (data: DisplaySettingsFormData) => void
   onNext: () => void
   onPrev: () => void
 }
 
-/**
- * Step 4: Display Settings
- * Configure visual settings for the draw screen
- */
 export function StepDisplay({
   data,
-  availableCustomFields,
-  hasParticipantName = false,
   onUpdate,
   onNext,
   onPrev,
 }: StepDisplayProps) {
-  const handleChange = (
-    field: keyof DisplaySettingsFormData,
-    value: string | string[] | number
-  ) => {
-    onUpdate({ ...data, [field]: value })
-  }
-
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -55,29 +32,25 @@ export function StepDisplay({
     const reader = new FileReader()
     reader.onload = (event) => {
       const base64 = event.target?.result as string
-      handleChange('backgroundImage', base64)
+      onUpdate({ ...data, backgroundImage: base64 })
     }
     reader.readAsDataURL(file)
   }
 
   const handleRemoveBackground = () => {
-    handleChange('backgroundImage', undefined as unknown as string)
-  }
-
-  const toggleCustomField = (field: string) => {
-    const current = data.customFieldsToShow || []
-    if (current.includes(field)) {
-      handleChange(
-        'customFieldsToShow',
-        current.filter((f) => f !== field)
-      )
-    } else {
-      handleChange('customFieldsToShow', [...current, field])
-    }
+    onUpdate({ ...data, backgroundImage: undefined })
   }
 
   return (
     <div className="space-y-6">
+      {/* Notice Badge */}
+      <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800">
+        <Info className="h-5 w-5 flex-shrink-0" />
+        <span className="text-sm">
+          This setting will be available in a future update. You can configure it now but some options may not take effect yet.
+        </span>
+      </div>
+
       {/* Background Image */}
       <Card>
         <CardContent className="p-4">
@@ -127,33 +100,6 @@ export function StepDisplay({
         </CardContent>
       </Card>
 
-      {/* Animation Type */}
-      <Card>
-        <CardContent className="p-4">
-          <Label className="mb-4 block text-base font-medium">
-            Animation Type
-          </Label>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Choose the animation style for the draw screen (Phase 2 feature)
-          </p>
-
-          <Select
-            value={data.animationType}
-            onValueChange={(value: AnimationType) =>
-              handleChange('animationType', value)
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3d-sphere">3D Sphere</SelectItem>
-              <SelectItem value="particle">Particle Effect</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
       {/* Winner Display Options */}
       <Card>
         <CardContent className="p-4">
@@ -166,142 +112,22 @@ export function StepDisplay({
 
           <RadioGroup
             value={data.winnerDisplayMode}
-            onValueChange={(value: WinnerDisplayMode) =>
-              handleChange('winnerDisplayMode', value)
+            onValueChange={(value: 'coupon_only' | 'coupon_and_participant') =>
+              onUpdate({ ...data, winnerDisplayMode: value })
             }
             className="space-y-3"
           >
-            {(Object.entries(WINNER_DISPLAY_MODE_LABELS) as [WinnerDisplayMode, string][]).map(
-              ([value, label]) => {
-                const isDisabled = value === 'coupon-participant-name' && !hasParticipantName
-                return (
-                  <div key={value} className="flex items-center space-x-3">
-                    <RadioGroupItem
-                      value={value}
-                      id={value}
-                      disabled={isDisabled}
-                    />
-                    <Label
-                      htmlFor={value}
-                      className={isDisabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}
-                    >
-                      {label}
-                      {isDisabled && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (no name column in import)
-                        </span>
-                      )}
-                    </Label>
-                  </div>
-                )
-              }
-            )}
+            {Object.entries(WINNER_DISPLAY_MODE_LABELS).map(([value, label]) => (
+              <div key={value} className="flex items-center space-x-3">
+                <RadioGroupItem value={value} id={value} />
+                <Label htmlFor={value} className="cursor-pointer">
+                  {label}
+                </Label>
+              </div>
+            ))}
           </RadioGroup>
         </CardContent>
       </Card>
-
-      {/* Grid Configuration */}
-      <Card>
-        <CardContent className="p-4">
-          <Label className="mb-4 block text-base font-medium">
-            Winner Grid Layout
-          </Label>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Configure the grid layout for winner cards on the draw screen
-          </p>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <Label htmlFor="gridX" className="mb-2 block text-sm font-medium">
-                Columns (X)
-              </Label>
-              <Input
-                id="gridX"
-                type="number"
-                min={1}
-                max={10}
-                value={data.gridX || 5}
-                onChange={(e) => handleChange('gridX', Number(e.target.value))}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Cards per row
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="gridY" className="mb-2 block text-sm font-medium">
-                Rows (Y)
-              </Label>
-              <Input
-                id="gridY"
-                type="number"
-                min={1}
-                max={10}
-                value={data.gridY || 2}
-                onChange={(e) => handleChange('gridY', Number(e.target.value))}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Number of rows
-              </p>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="p-4 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground mb-3">
-              Preview: {data.gridX || 5} × {data.gridY || 2} = {(data.gridX || 5) * (data.gridY || 2)} cards per page
-            </p>
-            <div
-              className="grid gap-2 border border-dashed border-border p-2 rounded-lg"
-              style={{ gridTemplateColumns: `repeat(${data.gridX || 5}, 1fr)` }}
-            >
-              {Array.from({ length: (data.gridX || 5) * (data.gridY || 2) }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-background border border-border rounded h-8"
-                />
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Custom Fields to Display */}
-      {availableCustomFields.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <Label className="mb-4 block text-base font-medium">
-              Custom Fields to Display
-            </Label>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Select which custom fields to show on winner cards
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              {availableCustomFields.map((field) => {
-                const isSelected = (data.customFieldsToShow || []).includes(field)
-                return (
-                  <Badge
-                    key={field}
-                    variant={isSelected ? 'default' : 'outline'}
-                    className="cursor-pointer"
-                    onClick={() => toggleCustomField(field)}
-                  >
-                    {field}
-                    {isSelected && <X className="ml-1 h-3 w-3" />}
-                  </Badge>
-                )
-              })}
-            </div>
-
-            {data.customFieldsToShow && data.customFieldsToShow.length > 0 && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Selected: {data.customFieldsToShow.join(', ')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Actions */}
       <div className="flex justify-between">

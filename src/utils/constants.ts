@@ -75,13 +75,12 @@ export const SEARCH_DEBOUNCE_MS = 300
 // ============================================
 
 /** Total number of steps in the event wizard */
-export const WIZARD_TOTAL_STEPS = 5
+export const WIZARD_TOTAL_STEPS = 4
 
 /** Step labels for the wizard */
 export const WIZARD_STEP_LABELS = [
   'Event Info',
   'Prizes',
-  'Participants',
   'Display',
   'Review',
 ] as const
@@ -92,23 +91,14 @@ export const WIZARD_STEP_LABELS = [
 
 /** Default win rule configuration */
 export const DEFAULT_WIN_RULE = {
-  type: 'one-time' as const,
+  type: 'onetime' as const,
   maxWins: 1,
 }
 
-/** Default display settings */
+/** Default display settings (UI-only, not sent to API) */
 export const DEFAULT_DISPLAY_SETTINGS = {
-  animationType: '3d-sphere' as const,
-  winnerDisplayMode: 'coupon-only' as const,
-  customFieldsToShow: [] as string[],
-  gridX: 5,
-  gridY: 2,
-}
-
-/** Default draw configuration */
-export const DEFAULT_DRAW_CONFIG = {
-  mode: 'all-at-once' as const,
-  batches: [] as number[],
+  backgroundImage: '' as string,
+  winnerDisplayMode: 'coupon_only' as const,
 }
 
 /** Default event info for new events */
@@ -117,8 +107,10 @@ export const DEFAULT_EVENT_INFO = {
   description: '',
   startDate: null as Date | null,
   endDate: null as Date | null,
-  winRuleType: 'one-time' as const,
+  winRuleType: 'onetime' as const,
   maxWins: 1,
+  drawMode: 'one_by_one' as const,
+  animationType: 'sphere' as const,
 }
 
 // ============================================
@@ -150,30 +142,42 @@ export const MAX_LIMITED_WINS = 100
 /** Human-readable labels for event statuses */
 export const EVENT_STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
-  ready: 'Ready',
   in_progress: 'In Progress',
   completed: 'Completed',
 }
 
 /** Human-readable labels for win rule types */
 export const WIN_RULE_LABELS: Record<string, string> = {
-  'one-time': 'One-time Win',
+  onetime: 'One-time Win',
   limited: 'Limited Wins',
   unlimited: 'Unlimited',
 }
 
 /** Human-readable labels for draw modes */
 export const DRAW_MODE_LABELS: Record<string, string> = {
-  'all-at-once': 'All at Once',
-  batch: 'In Batches',
-  'one-by-one': 'One by One',
+  one_by_one: 'One by One',
+  batch: 'Batch',
+}
+
+/** Human-readable labels for animation types */
+export const ANIMATION_TYPE_LABELS: Record<string, string> = {
+  sphere: 'Sphere',
+  rolling: 'Rolling',
+  randomize: 'Randomize',
+}
+
+/** Human-readable labels for import statuses */
+export const IMPORT_STATUS_LABELS: Record<string, string> = {
+  draft: 'Not Imported',
+  in_progress: 'Importing...',
+  done: 'Imported',
+  fail: 'Import Failed',
 }
 
 /** Human-readable labels for winner display modes */
 export const WINNER_DISPLAY_MODE_LABELS: Record<string, string> = {
-  'coupon-only': 'Coupon ID only',
-  'coupon-participant-id': 'Coupon ID + Participant ID',
-  'coupon-participant-name': 'Coupon ID + Participant Name',
+  coupon_only: 'Coupon ID only',
+  coupon_and_participant: 'Coupon ID + Participant',
 }
 
 // ============================================

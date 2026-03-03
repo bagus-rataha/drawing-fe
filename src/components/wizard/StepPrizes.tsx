@@ -1,20 +1,13 @@
 /**
  * @file components/wizard/StepPrizes.tsx
- * @description Step 2: Prize Management component with drag & drop reordering
+ * @description Step 2: Prize Management with drag & drop reordering and batch_number
  */
 
 import { useState, useMemo } from 'react'
-import type { PrizeFormData, DrawMode } from '@/types'
+import type { PrizeFormData } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -38,7 +31,6 @@ import {
 import { generateId } from '@/utils/helpers'
 import { PrizeImageUpload } from './PrizeImageUpload'
 import { validatePrize, validatePrizes } from '@/services/validationService'
-import { DRAW_MODE_LABELS, DEFAULT_DRAW_CONFIG } from '@/utils/constants'
 
 // Drag and drop imports
 import {
@@ -61,48 +53,40 @@ import { CSS } from '@dnd-kit/utilities'
 
 interface StepPrizesProps {
   prizes: PrizeFormData[]
+  drawMode: 'one_by_one' | 'batch'
   onUpdate: (prizes: PrizeFormData[]) => void
   onNext: () => void
   onPrev: () => void
 }
 
 /**
- * Parse batch configuration from comma-separated string
+ * Generate batch preview sentence
  */
-function parseBatchConfig(input: string): { batches: number[]; error?: string } {
-  if (!input.trim()) {
-    return { batches: [], error: 'Batch sizes are required' }
+function getBatchPreview(quantity: number, batchNumber: number): string | null {
+  if (batchNumber < 2 || quantity < 2) return null
+
+  const totalBatches = Math.ceil(quantity / batchNumber)
+  const remainder = quantity % batchNumber
+
+  if (remainder === 0) {
+    return `Prize ini terdiri dari **${totalBatches} batch**, masing-masing batch **${batchNumber}**`
   }
 
-  const parts = input.split(',').map((s) => s.trim()).filter(Boolean)
-  const numbers = parts.map(Number)
-
-  if (numbers.some(isNaN)) {
-    return { batches: [], error: 'Invalid number format. Use comma-separated numbers.' }
-  }
-
-  if (numbers.some((n) => n <= 0)) {
-    return { batches: [], error: 'All batch sizes must be positive numbers.' }
-  }
-
-  if (numbers.some((n) => !Number.isInteger(n))) {
-    return { batches: [], error: 'All batch sizes must be whole numbers.' }
-  }
-
-  return { batches: numbers }
+  return `Prize ini terdiri dari **${totalBatches} batch**, masing-masing batch **${batchNumber}**, dengan batch terakhir berjumlah **${remainder}**`
 }
 
 /**
- * Sortable Prize Item component for drag and drop
+ * Sortable Prize Item component
  */
 interface SortablePrizeItemProps {
   prize: PrizeFormData
   index: number
+  showBatch: boolean
   onEdit: (prize: PrizeFormData) => void
   onDelete: (id: string) => void
 }
 
-function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItemProps) {
+function SortablePrizeItem({ prize, index, showBatch, onEdit, onDelete }: SortablePrizeItemProps) {
   const {
     attributes,
     listeners,
@@ -121,7 +105,6 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
 
   return (
     <Card ref={setNodeRef} style={style} className={isDragging ? 'shadow-lg' : ''}>
-      {/* FIX (Rev 18): Responsive layout - stack on mobile, row on desktop */}
       <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4">
         <div className="flex items-center gap-3 sm:gap-4">
           <div
@@ -152,20 +135,10 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
           </div>
           {/* Mobile: Action buttons */}
           <div className="flex gap-1 sm:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onEdit(prize)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(prize)}>
               <Edit className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onDelete(prize.id)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(prize.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -178,35 +151,22 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
               <span className="truncate font-semibold">{prize.name}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} ·{' '}
-              {DRAW_MODE_LABELS[prize.drawMode]}
-              {prize.drawMode === 'batch' &&
-                prize.batches.length > 0 &&
-                ` (${prize.batches.join(', ')})`}
+              {prize.quantity} winner{prize.quantity > 1 ? 's' : ''}
+              {showBatch && prize.batchNumber >= 2 && ` · Batch: ${prize.batchNumber}`}
             </div>
           </div>
         </div>
         {/* Mobile: Details below */}
         <div className="sm:hidden text-xs text-muted-foreground pl-8">
-          {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} · {DRAW_MODE_LABELS[prize.drawMode]}
-          {prize.drawMode === 'batch' &&
-            prize.batches.length > 0 &&
-            ` (${prize.batches.join(', ')})`}
+          {prize.quantity} winner{prize.quantity > 1 ? 's' : ''}
+          {showBatch && prize.batchNumber >= 2 && ` · Batch: ${prize.batchNumber}`}
         </div>
         {/* Desktop: Action buttons */}
         <div className="hidden sm:flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit(prize)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => onEdit(prize)}>
             <Edit className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(prize.id)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => onDelete(prize.id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -217,10 +177,10 @@ function SortablePrizeItem({ prize, index, onEdit, onDelete }: SortablePrizeItem
 
 /**
  * Step 2: Prize Management
- * Add, edit, delete, and reorder prizes
  */
 export function StepPrizes({
   prizes,
+  drawMode,
   onUpdate,
   onNext,
   onPrev,
@@ -230,34 +190,27 @@ export function StepPrizes({
   const [formData, setFormData] = useState<PrizeFormData>(createEmptyPrize())
   const [errors, setErrors] = useState<string[]>([])
   const [formErrors, setFormErrors] = useState<string[]>([])
-  const [batchInput, setBatchInput] = useState('')
-  const [batchError, setBatchError] = useState<string | null>(null)
+
+  const isBatchMode = drawMode === 'batch'
 
   // DnD sensors setup
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px movement required before drag starts
-      },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
 
-  // Prize IDs for sortable context
   const prizeIds = useMemo(() => prizes.map((p) => p.id), [prizes])
 
-  // Handle drag end - reorder prizes
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
-
     if (over && active.id !== over.id) {
       const oldIndex = prizes.findIndex((p) => p.id === active.id)
       const newIndex = prizes.findIndex((p) => p.id === over.id)
-
-      const reorderedPrizes = arrayMove(prizes, oldIndex, newIndex)
-      onUpdate(reorderedPrizes)
+      onUpdate(arrayMove(prizes, oldIndex, newIndex))
     }
   }
 
@@ -267,8 +220,7 @@ export function StepPrizes({
       name: '',
       image: undefined,
       quantity: 1,
-      drawMode: DEFAULT_DRAW_CONFIG.mode,
-      batches: [],
+      batchNumber: 1,
     }
   }
 
@@ -276,8 +228,6 @@ export function StepPrizes({
     setEditingPrize(null)
     setFormData(createEmptyPrize())
     setFormErrors([])
-    setBatchInput('')
-    setBatchError(null)
     setIsDialogOpen(true)
   }
 
@@ -285,8 +235,6 @@ export function StepPrizes({
     setEditingPrize(prize)
     setFormData({ ...prize })
     setFormErrors([])
-    setBatchInput(prize.batches.join(', '))
-    setBatchError(null)
     setIsDialogOpen(true)
   }
 
@@ -301,11 +249,17 @@ export function StepPrizes({
       return
     }
 
+    // Batch number validation
+    if (isBatchMode && formData.batchNumber >= 2) {
+      if (formData.batchNumber >= formData.quantity) {
+        setFormErrors(['Batch number must be less than quantity'])
+        return
+      }
+    }
+
     if (editingPrize) {
-      // Update existing
       onUpdate(prizes.map((p) => (p.id === formData.id ? formData : p)))
     } else {
-      // Add new
       onUpdate([...prizes, formData])
     }
 
@@ -313,32 +267,16 @@ export function StepPrizes({
     setFormErrors([])
   }
 
-  const handleFormChange = (
-    field: keyof PrizeFormData,
-    value: string | number | DrawMode | number[]
-  ) => {
+  const handleFormChange = (field: keyof PrizeFormData, value: string | number) => {
     setFormData({ ...formData, [field]: value })
     setFormErrors([])
   }
 
-  const handleBatchesChange = (value: string) => {
-    setBatchInput(value)
-
-    // Parse and validate batch config
-    const result = parseBatchConfig(value)
-    if (result.error) {
-      setBatchError(result.error)
-      handleFormChange('batches', [])
-    } else {
-      setBatchError(null)
-      handleFormChange('batches', result.batches)
-    }
-  }
-
-  // Calculate batch total for preview
-  const batchTotal = useMemo(() => {
-    return formData.batches.reduce((sum, b) => sum + b, 0)
-  }, [formData.batches])
+  // Batch preview
+  const batchPreview = useMemo(() => {
+    if (!isBatchMode || formData.batchNumber < 2) return null
+    return getBatchPreview(formData.quantity, formData.batchNumber)
+  }, [isBatchMode, formData.quantity, formData.batchNumber])
 
   const handleSubmit = () => {
     const validation = validatePrizes(prizes)
@@ -346,12 +284,10 @@ export function StepPrizes({
       setErrors(validation.errors)
       return
     }
-
     setErrors([])
     onNext()
   }
 
-  // Calculate totals
   const totalQuantity = prizes.reduce((sum, p) => sum + p.quantity, 0)
 
   return (
@@ -389,6 +325,7 @@ export function StepPrizes({
                     key={prize.id}
                     prize={prize}
                     index={index}
+                    showBatch={isBatchMode}
                     onEdit={handleEditPrize}
                     onDelete={handleDeletePrize}
                   />
@@ -443,7 +380,6 @@ export function StepPrizes({
           <div className="space-y-4 py-4">
             {/* Image + Name row */}
             <div className="flex gap-4">
-              {/* Prize Image */}
               <div className="flex-shrink-0 space-y-2">
                 <Label>Image</Label>
                 <PrizeImageUpload
@@ -452,7 +388,6 @@ export function StepPrizes({
                 />
               </div>
 
-              {/* Prize Name + Quantity */}
               <div className="flex-1 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="prizeName">
@@ -483,63 +418,34 @@ export function StepPrizes({
               </div>
             </div>
 
-            {/* Draw Mode */}
-            <div className="space-y-2">
-              <Label htmlFor="drawMode">Draw Mode</Label>
-              <Select
-                value={formData.drawMode}
-                onValueChange={(value: DrawMode) =>
-                  handleFormChange('drawMode', value)
-                }
-              >
-                <SelectTrigger id="drawMode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(DRAW_MODE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Batches (for batch mode) */}
-            {formData.drawMode === 'batch' && (
+            {/* Batch Number (only shown when draw mode is batch) */}
+            {isBatchMode && (
               <div className="space-y-2">
-                <Label htmlFor="batches">
-                  Batch Sizes <span className="text-destructive">*</span>
+                <Label htmlFor="batchNumber">
+                  Batch Number <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="batches"
-                  value={batchInput}
-                  onChange={(e) => handleBatchesChange(e.target.value)}
-                  placeholder="e.g., 15, 10, 10"
-                  className={batchError ? 'border-destructive' : ''}
+                  id="batchNumber"
+                  type="number"
+                  min={2}
+                  max={Math.max(formData.quantity - 1, 2)}
+                  value={formData.batchNumber}
+                  onChange={(e) =>
+                    handleFormChange('batchNumber', parseInt(e.target.value) || 2)
+                  }
                 />
-                {batchError ? (
-                  <p className="text-sm text-destructive">{batchError}</p>
-                ) : formData.batches.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      Parsed: [{formData.batches.join(', ')}] = {batchTotal} total
-                    </p>
-                    {batchTotal !== formData.quantity && (
-                      <p className="text-sm text-destructive">
-                        Total ({batchTotal}) must equal quantity ({formData.quantity})
-                      </p>
-                    )}
-                    {batchTotal === formData.quantity && (
-                      <p className="text-sm text-green-600">
-                        ✓ Batch sizes match quantity
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Enter batch sizes separated by commas. Total must equal quantity.
-                  </p>
+                <p className="text-sm text-muted-foreground">
+                  Number of winners per batch (min 2, max {Math.max(formData.quantity - 1, 2)})
+                </p>
+
+                {/* Batch Preview */}
+                {batchPreview && (
+                  <div
+                    className="rounded-md bg-muted p-3 text-sm"
+                    dangerouslySetInnerHTML={{
+                      __html: batchPreview.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
+                    }}
+                  />
                 )}
               </div>
             )}

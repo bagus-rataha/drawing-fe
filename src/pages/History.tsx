@@ -24,7 +24,8 @@ export function History() {
 
   const { data: event, isLoading: isLoadingEvent } = useEvent(id)
   const { data: winners = [], isLoading: isLoadingWinners } = useWinners(id)
-  const { data: prizes = [], isLoading: isLoadingPrizes } = usePrizes(id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: prizes = [], isLoading: isLoadingPrizes } = usePrizes(id) as any
 
   const isLoading = isLoadingEvent || isLoadingWinners || isLoadingPrizes
 

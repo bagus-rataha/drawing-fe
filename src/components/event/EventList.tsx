@@ -1,10 +1,5 @@
-/**
- * @file components/event/EventList.tsx
- * @description Event list component with search and filter
- */
-
 import { useState, useMemo } from 'react'
-import type { Event, EventStatus } from '@/types'
+import type { EventListResponse } from '@/types/api'
 import { EventCard } from './EventCard'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,25 +16,19 @@ import { EVENT_STATUS_LABELS } from '@/utils/constants'
 import { debounce } from '@/utils/helpers'
 
 interface EventListProps {
-  events: Event[]
+  events: EventListResponse[]
   isLoading?: boolean
   onDelete?: (id: string) => void
-  onDuplicate?: (id: string) => void
 }
 
-/**
- * Event list component with search and filter functionality
- */
 export function EventList({
   events,
   isLoading = false,
   onDelete,
-  onDuplicate,
 }: EventListProps) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<EventStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // Debounced search handler
   const handleSearchChange = useMemo(
     () =>
       debounce((value: unknown) => {
@@ -48,15 +37,11 @@ export function EventList({
     []
   )
 
-  // Filter events based on search and status
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      // Status filter
       if (statusFilter !== 'all' && event.status !== statusFilter) {
         return false
       }
-
-      // Search filter
       if (search) {
         const searchLower = search.toLowerCase()
         return (
@@ -64,7 +49,6 @@ export function EventList({
           event.description?.toLowerCase().includes(searchLower)
         )
       }
-
       return true
     })
   }, [events, search, statusFilter])
@@ -75,7 +59,6 @@ export function EventList({
 
   return (
     <div className="space-y-6">
-      {/* Search and Filter Bar */}
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -89,9 +72,7 @@ export function EventList({
           <Filter className="h-4 w-4 text-muted-foreground" />
           <Select
             value={statusFilter}
-            onValueChange={(value) =>
-              setStatusFilter(value as EventStatus | 'all')
-            }
+            onValueChange={(value) => setStatusFilter(value)}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="All Status" />
@@ -108,7 +89,6 @@ export function EventList({
         </div>
       </div>
 
-      {/* Event List */}
       {filteredEvents.length === 0 ? (
         <EmptyState
           icon={Calendar}
@@ -120,7 +100,7 @@ export function EventList({
           }
           action={
             events.length === 0
-              ? { label: '+ Create Event', href: '/event/new' }
+              ? { label: '+ Create Event', href: '/events/new' }
               : undefined
           }
         />
@@ -131,7 +111,6 @@ export function EventList({
               key={event.id}
               event={event}
               onDelete={onDelete}
-              onDuplicate={onDuplicate}
             />
           ))}
         </div>
@@ -140,19 +119,13 @@ export function EventList({
   )
 }
 
-/**
- * Loading skeleton for event list
- */
 function EventListSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Search and Filter Skeleton */}
       <div className="flex flex-col gap-4 sm:flex-row">
         <Skeleton className="h-11 flex-1" />
         <Skeleton className="h-11 w-[150px]" />
       </div>
-
-      {/* Event Cards Skeleton */}
       <div className="flex flex-col gap-4">
         {[1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-56 w-full rounded-xl" />

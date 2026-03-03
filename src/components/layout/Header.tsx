@@ -29,7 +29,7 @@ export function Header() {
         {/* Create Button */}
         {isHome && (
           <Button size="sm" asChild>
-            <Link to="/event/new">
+            <Link to="/events/new">
               <Plus className="mr-2 h-4 w-4" />
               Create Event
             </Link>

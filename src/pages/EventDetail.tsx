@@ -1,10 +1,6 @@
 /**
  * @file pages/EventDetail.tsx
  * @description Event detail page (readonly view)
- *
- * Route: /event/:id
- * Shows event info, prizes, participant stats, display settings
- * FIX (Rev 18): New feature - dedicated event detail page
  */
 
 import { Link, useParams, useNavigate } from 'react-router-dom'
@@ -23,38 +19,44 @@ import {
   Ticket,
   Calendar,
   Trophy,
-  Settings,
+  Upload,
   ImageIcon,
 } from 'lucide-react'
-import { useEvent, usePrizes, useParticipantCount, useCouponCount } from '@/hooks'
+import { useEvent, usePrizes } from '@/hooks'
 import { formatDate, formatNumber } from '@/utils/helpers'
 import {
   EVENT_STATUS_LABELS,
   WIN_RULE_LABELS,
   DRAW_MODE_LABELS,
-  WINNER_DISPLAY_MODE_LABELS,
+  ANIMATION_TYPE_LABELS,
+  IMPORT_STATUS_LABELS,
 } from '@/utils/constants'
 
-/**
- * Event Detail page component
- */
 export function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  // Fetch data
   const { data: event, isLoading: isLoadingEvent } = useEvent(id)
   const { data: prizes = [], isLoading: isLoadingPrizes } = usePrizes(id)
-  const { data: participantCount = 0, isLoading: isLoadingParticipants } = useParticipantCount(id)
-  const { data: couponCount = 0, isLoading: isLoadingCoupons } = useCouponCount(id)
 
-  const isLoading = isLoadingEvent || isLoadingPrizes || isLoadingParticipants || isLoadingCoupons
+  const isLoading = isLoadingEvent || isLoadingPrizes
 
-  // Action button logic based on status
-  const canEdit = event?.status === 'draft' || event?.status === 'ready' || event?.status === 'completed'
-  const canStartDraw = event?.status === 'draft' || event?.status === 'ready'
-  const canContinueDraw = event?.status === 'in_progress'
+  // Action button logic
+  const canEdit = event?.status === 'draft'
+  const canImport = event?.import_status === 'draft' || event?.import_status === 'fail'
   const canViewHistory = event?.status === 'in_progress' || event?.status === 'completed'
+
+  // Draw button logic
+  const isDrawComplete = event?.status === 'completed'
+  let drawButtonText = 'Start Draw'
+  let DrawButtonIcon = Play
+  if (isDrawComplete) {
+    drawButtonText = 'Draw Result'
+    DrawButtonIcon = Trophy
+  } else if (event?.status === 'in_progress') {
+    drawButtonText = 'Resume Draw'
+    DrawButtonIcon = Play
+  }
 
   if (isLoading) {
     return (
@@ -87,8 +89,18 @@ export function EventDetail() {
   }
 
   const statusLabel = EVENT_STATUS_LABELS[event.status] || event.status
-  const winRuleLabel = WIN_RULE_LABELS[event.winRule.type] || event.winRule.type
-  const statusVariant = event.status as 'draft' | 'ready' | 'in_progress' | 'completed'
+  const winRuleLabel = WIN_RULE_LABELS[event.win_rule] || event.win_rule
+  const importStatusLabel = IMPORT_STATUS_LABELS[event.import_status] || event.import_status
+  const statusVariant = event.status as 'draft' | 'in_progress' | 'completed'
+
+  const importBadgeVariant =
+    event.import_status === 'done'
+      ? 'completed'
+      : event.import_status === 'fail'
+        ? 'draft'
+        : event.import_status === 'in_progress'
+          ? 'in_progress'
+          : 'draft'
 
   return (
     <div className="min-h-screen bg-surface-alt">
@@ -113,41 +125,44 @@ export function EventDetail() {
                 <p className="mt-1 text-content-muted">{event.description}</p>
               )}
             </div>
-            <Badge variant={statusVariant} className="w-fit">{statusLabel}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={statusVariant} className="w-fit">{statusLabel}</Badge>
+              <Badge variant={importBadgeVariant as 'draft' | 'in_progress' | 'completed'}>
+                {importStatusLabel}
+              </Badge>
+            </div>
           </div>
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3 mb-6">
             {canEdit && (
               <Button variant="outline" asChild>
-                <Link to={`/event/${event.id}/edit`}>
+                <Link to={`/events/${event.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </Link>
               </Button>
             )}
 
-            {canStartDraw && (
-              <Button asChild>
-                <Link to={`/event/${event.id}/draw`}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Draw
+            {canImport && (
+              <Button variant="outline" asChild>
+                <Link to={`/events/${event.id}/import`}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Participants
                 </Link>
               </Button>
             )}
 
-            {canContinueDraw && (
-              <Button asChild>
-                <Link to={`/event/${event.id}/draw`}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Continue Draw
-                </Link>
-              </Button>
-            )}
+            <Button variant={isDrawComplete ? 'outline' : 'default'} asChild>
+              <Link to={`/draw/${event.id}`}>
+                <DrawButtonIcon className="mr-2 h-4 w-4" />
+                {drawButtonText}
+              </Link>
+            </Button>
 
             {canViewHistory && (
               <Button variant="outline" asChild>
-                <Link to={`/event/${event.id}/history`}>
+                <Link to={`/history/${event.id}`}>
                   <History className="mr-2 h-4 w-4" />
                   View History
                 </Link>
@@ -165,13 +180,13 @@ export function EventDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Date range */}
-              {(event.startDate || event.endDate) && (
+              {(event.start_date || event.end_date) && (
                 <div>
                   <span className="text-sm text-content-muted">Event Date: </span>
                   <span className="text-sm font-medium text-navy">
-                    {event.startDate && formatDate(event.startDate)}
-                    {event.startDate && event.endDate && ' - '}
-                    {event.endDate && formatDate(event.endDate)}
+                    {event.start_date && formatDate(event.start_date)}
+                    {event.start_date && event.end_date && ' - '}
+                    {event.end_date && formatDate(event.end_date)}
                   </span>
                 </div>
               )}
@@ -180,27 +195,98 @@ export function EventDetail() {
               <div>
                 <span className="text-sm text-content-muted">Win Rule: </span>
                 <span className="text-sm font-medium text-navy">{winRuleLabel}</span>
-                {event.winRule.type === 'limited' && event.winRule.maxWins && (
-                  <span className="text-sm text-content-muted"> (max {event.winRule.maxWins} wins)</span>
-                )}
               </div>
+
+              {/* Draw Mode */}
+              <div>
+                <span className="text-sm text-content-muted">Draw Mode: </span>
+                <span className="text-sm font-medium text-navy">
+                  {DRAW_MODE_LABELS[event.draw_mode] || event.draw_mode}
+                </span>
+              </div>
+
+              {/* Animation Type */}
+              <div>
+                <span className="text-sm text-content-muted">Animation: </span>
+                <span className="text-sm font-medium text-navy">
+                  {ANIMATION_TYPE_LABELS[event.animation_type] || event.animation_type}
+                </span>
+              </div>
+
+              {/* Import Status */}
+              {event.import_status === 'in_progress' && (
+                <div className="space-y-2">
+                  <span className="text-sm text-content-muted">Import Progress: </span>
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${event.import_progress || 0}%` }}
+                    />
+                  </div>
+                  {event.import_message && (
+                    <p className="text-xs text-content-muted">{event.import_message}</p>
+                  )}
+                </div>
+              )}
 
               {/* Timestamps */}
               <div className="flex flex-wrap gap-4 pt-2 border-t border-border-custom">
                 <div>
                   <span className="text-xs text-content-muted">Created: </span>
-                  <span className="text-xs text-navy">{formatDate(event.createdAt)}</span>
+                  <span className="text-xs text-navy">{formatDate(event.created_at)}</span>
                 </div>
                 <div>
                   <span className="text-xs text-content-muted">Updated: </span>
-                  <span className="text-xs text-navy">{formatDate(event.updatedAt)}</span>
+                  <span className="text-xs text-navy">{formatDate(event.updated_at)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats Section */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
+                  <Gift className="h-8 w-8 text-primary" />
+                  <div>
+                    <div className="text-2xl font-bold text-navy">{event.total_prizes}</div>
+                    <div className="text-sm text-content-muted">Prizes</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
+                  <Users className="h-8 w-8 text-primary" />
+                  <div>
+                    <div className="text-2xl font-bold text-navy">{formatNumber(event.total_participants)}</div>
+                    <div className="text-sm text-content-muted">Participants</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
+                  <Ticket className="h-8 w-8 text-primary" />
+                  <div>
+                    <div className="text-2xl font-bold text-navy">{formatNumber(event.total_coupons)}</div>
+                    <div className="text-sm text-content-muted">Coupons</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
+                  <Trophy className="h-8 w-8 text-primary" />
+                  <div>
+                    <div className="text-2xl font-bold text-navy">{formatNumber(event.total_winners)}</div>
+                    <div className="text-sm text-content-muted">Winners</div>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Prizes Section */}
-          <Card className="mb-6">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Gift className="h-5 w-5 text-primary" />
@@ -217,38 +303,25 @@ export function EventDetail() {
                       key={prize.id}
                       className="flex items-center gap-4 p-3 rounded-lg bg-surface-alt border border-border-custom"
                     >
-                      {/* Prize Image */}
                       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-white">
-                        {prize.image ? (
-                          <img
-                            src={prize.image}
-                            alt={prize.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <ImageIcon className="h-5 w-5 text-content-muted" />
-                        )}
+                        <ImageIcon className="h-5 w-5 text-content-muted" />
                       </div>
-                      {/* Prize Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-navy">#{index + 1}</span>
                           <span className="font-semibold text-navy truncate">{prize.name}</span>
                         </div>
                         <div className="text-sm text-content-muted">
-                          {prize.quantity} winner{prize.quantity > 1 ? 's' : ''} ·{' '}
-                          {DRAW_MODE_LABELS[prize.drawConfig.mode]}
-                          {prize.drawConfig.mode === 'batch' &&
-                            prize.drawConfig.batches &&
-                            ` (${prize.drawConfig.batches.join(', ')})`}
+                          {prize.quantity} winner{prize.quantity > 1 ? 's' : ''}
+                          {event.draw_mode === 'batch' && prize.batch_number >= 2 &&
+                            ` · Batch size: ${prize.batch_number}`}
                         </div>
                       </div>
-                      {/* Progress */}
                       <div className="text-right">
                         <div className="text-sm font-semibold text-navy">
-                          {prize.drawnCount}/{prize.quantity}
+                          {prize.current_batch}/{Math.ceil(prize.quantity / (prize.batch_number || 1))}
                         </div>
-                        <div className="text-xs text-content-muted">drawn</div>
+                        <div className="text-xs text-content-muted">batches</div>
                       </div>
                     </div>
                   ))}
@@ -256,98 +329,6 @@ export function EventDetail() {
               )}
             </CardContent>
           </Card>
-
-          {/* Participants Section */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Participants
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
-                  <Users className="h-8 w-8 text-primary" />
-                  <div>
-                    <div className="text-2xl font-bold text-navy">{formatNumber(participantCount)}</div>
-                    <div className="text-sm text-content-muted">Total Participants</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
-                  <Ticket className="h-8 w-8 text-primary" />
-                  <div>
-                    <div className="text-2xl font-bold text-navy">{formatNumber(couponCount)}</div>
-                    <div className="text-sm text-content-muted">Total Coupons</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-surface-alt border border-border-custom">
-                  <Trophy className="h-8 w-8 text-primary" />
-                  <div>
-                    <div className="text-2xl font-bold text-navy">
-                      {formatNumber(prizes.reduce((sum, p) => sum + p.drawnCount, 0))}
-                    </div>
-                    <div className="text-sm text-content-muted">Winners Drawn</div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Display Settings Section */}
-          {event.displaySettings && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  Display Settings
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Winner Display Mode */}
-                <div>
-                  <span className="text-sm text-content-muted">Winner Display: </span>
-                  <span className="text-sm font-medium text-navy">
-                    {WINNER_DISPLAY_MODE_LABELS[event.displaySettings.winnerDisplayMode] ||
-                      event.displaySettings.winnerDisplayMode}
-                  </span>
-                </div>
-
-                {/* Grid Size */}
-                <div>
-                  <span className="text-sm text-content-muted">Grid Size: </span>
-                  <span className="text-sm font-medium text-navy">
-                    {event.displaySettings.gridX || 5} x {event.displaySettings.gridY || 2}
-                  </span>
-                </div>
-
-                {/* Custom Fields */}
-                {event.displaySettings.customFieldsToShow &&
-                  event.displaySettings.customFieldsToShow.length > 0 && (
-                    <div>
-                      <span className="text-sm text-content-muted">Custom Fields: </span>
-                      <span className="text-sm font-medium text-navy">
-                        {event.displaySettings.customFieldsToShow.join(', ')}
-                      </span>
-                    </div>
-                  )}
-
-                {/* Background Image Preview */}
-                {event.displaySettings.backgroundImage && (
-                  <div>
-                    <span className="text-sm text-content-muted block mb-2">Background Image:</span>
-                    <div className="w-48 h-28 rounded-lg overflow-hidden border border-border-custom">
-                      <img
-                        src={event.displaySettings.backgroundImage}
-                        alt="Background"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
       </main>
     </div>
