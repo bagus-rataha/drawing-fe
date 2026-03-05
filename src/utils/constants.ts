@@ -110,7 +110,7 @@ export const DEFAULT_EVENT_INFO = {
   winRuleType: 'onetime' as const,
   maxWins: 1,
   drawMode: 'one_by_one' as const,
-  animationType: 'sphere' as const,
+  animationType: 'randomize' as const,
 }
 
 // ============================================
@@ -161,9 +161,9 @@ export const DRAW_MODE_LABELS: Record<string, string> = {
 
 /** Human-readable labels for animation types */
 export const ANIMATION_TYPE_LABELS: Record<string, string> = {
-  sphere: 'Sphere',
-  rolling: 'Rolling',
   randomize: 'Randomize',
+  rolling: 'Rolling',
+  sphere: 'Sphere',
 }
 
 /** Human-readable labels for import statuses */

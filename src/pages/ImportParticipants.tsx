@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useEvent, useImportParticipants } from '@/hooks'
+import { eventKeys } from '@/hooks/useEvents'
 import { getEvent } from '@/services/api/eventApi'
 import { formatNumber } from '@/utils/helpers'
 
@@ -28,6 +30,7 @@ type ImportPhase = 'upload' | 'progress' | 'result'
 export default function ImportParticipants() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // Fetch event
   const { data: event, isLoading } = useEvent(id)
@@ -87,6 +90,7 @@ export default function ImportParticipants() {
         if (eventData.import_status === 'done') {
           clearInterval(pollingRef.current!)
           pollingRef.current = null
+          queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) })
           setResultSuccess(true)
           setResultParticipants(eventData.total_participants)
           setResultCoupons(eventData.total_coupons)
@@ -94,6 +98,7 @@ export default function ImportParticipants() {
         } else if (eventData.import_status === 'fail') {
           clearInterval(pollingRef.current!)
           pollingRef.current = null
+          queryClient.invalidateQueries({ queryKey: eventKeys.detail(id) })
           setResultSuccess(false)
           setResultError(eventData.import_message || 'Import failed')
           setPhase('result')

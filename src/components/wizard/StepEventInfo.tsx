@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import type { EventInfoFormData, WinRuleType } from '@/types'
+import type { EventInfoFormData, PrizeFormData, WinRuleType } from '@/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { validateEventInfo } from '@/services/validationService'
 import { WIN_RULE_LABELS, DRAW_MODE_LABELS, ANIMATION_TYPE_LABELS } from '@/utils/constants'
 import { AlertCircle, ArrowRight, CalendarIcon } from 'lucide-react'
@@ -26,12 +27,16 @@ import 'react-datepicker/dist/react-datepicker.css'
 
 interface StepEventInfoProps {
   data: EventInfoFormData
+  prizes: PrizeFormData[]
   onUpdate: (data: EventInfoFormData) => void
+  onPrizesUpdate: (prizes: PrizeFormData[]) => void
   onNext: () => void
 }
 
-export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
+export function StepEventInfo({ data, prizes, onUpdate, onPrizesUpdate, onNext }: StepEventInfoProps) {
   const [errors, setErrors] = useState<string[]>([])
+  const [showDrawModeConfirm, setShowDrawModeConfirm] = useState(false)
+  const [pendingDrawMode, setPendingDrawMode] = useState<string | null>(null)
 
   // Responsive DatePicker
   const [isMobile, setIsMobile] = useState(false)
@@ -57,9 +62,26 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
   }
 
   const handleChange = (field: keyof EventInfoFormData, value: string | number | Date | null) => {
+    // Intercept drawMode change when prizes already exist
+    if (field === 'drawMode' && value !== data.drawMode && prizes.length > 0) {
+      setPendingDrawMode(value as string)
+      setShowDrawModeConfirm(true)
+      return
+    }
     onUpdate({ ...data, [field]: value })
     setErrors([])
   }
+
+  const handleDrawModeConfirm = () => {
+    if (!pendingDrawMode) return
+    const newBatchNumber = pendingDrawMode === 'batch' ? 2 : 1
+    onPrizesUpdate(prizes.map((p) => ({ ...p, batchNumber: newBatchNumber })))
+    onUpdate({ ...data, drawMode: pendingDrawMode as 'one_by_one' | 'batch' })
+    setShowDrawModeConfirm(false)
+    setPendingDrawMode(null)
+    setErrors([])
+  }
+
 
   const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -214,14 +236,17 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
             onValueChange={(value) => handleChange('animationType', value)}
             className="flex gap-4"
           >
-            {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => (
-              <div key={value} className="flex items-center space-x-2">
-                <RadioGroupItem value={value} id={`animationType-${value}`} />
-                <Label htmlFor={`animationType-${value}`} className="cursor-pointer">
-                  {label}
-                </Label>
-              </div>
-            ))}
+            {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
+              const isDisabled = value !== 'randomize'
+              return (
+                <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
+                  <RadioGroupItem value={value} id={`animationType-${value}`} disabled={isDisabled} />
+                  <Label htmlFor={`animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                    {label}{isDisabled && ' (Coming Soon)'}
+                  </Label>
+                </div>
+              )
+            })}
           </RadioGroup>
           <p className="text-sm text-muted-foreground">
             Animation style for the draw screen
@@ -250,6 +275,17 @@ export function StepEventInfo({ data, onUpdate, onNext }: StepEventInfoProps) {
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
+
+      {/* Draw Mode Change Confirmation */}
+      <ConfirmDialog
+        open={showDrawModeConfirm}
+        onOpenChange={setShowDrawModeConfirm}
+        title="Ubah Draw Mode?"
+        description={`Anda sudah memiliki ${prizes.length} prize. Mengubah draw mode akan menyesuaikan batch number semua prize ke ${pendingDrawMode === 'batch' ? '2 (default batch)' : '1 (one by one)'}.\n\nLanjutkan?`}
+        confirmText="Ya, Ubah"
+        cancelText="Batal"
+        onConfirm={handleDrawModeConfirm}
+      />
     </form>
   )
 }

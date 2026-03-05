@@ -130,7 +130,9 @@ export function EventWizard() {
           {wizard.currentStep === 1 && (
             <StepEventInfo
               data={wizard.eventInfo}
+              prizes={wizard.prizes}
               onUpdate={setEventInfo}
+              onPrizesUpdate={setPrizes}
               onNext={nextStep}
             />
           )}

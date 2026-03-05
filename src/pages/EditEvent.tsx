@@ -179,7 +179,7 @@ export default function EditEvent() {
   const [winRuleType, setWinRuleType] = useState<WinRuleType>('onetime')
   const [maxWins, setMaxWins] = useState(1)
   const [drawMode, setDrawMode] = useState<'one_by_one' | 'batch'>('one_by_one')
-  const [animationType, setAnimationType] = useState<'sphere' | 'rolling' | 'randomize'>('sphere')
+  const [animationType, setAnimationType] = useState<'sphere' | 'rolling' | 'randomize'>('randomize')
 
   // Display settings (UI-only)
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>()
@@ -276,7 +276,7 @@ export default function EditEvent() {
   // Prize CRUD
   const handleAddPrize = () => {
     setEditingPrize(null)
-    setPrizeForm({ id: '', name: '', quantity: 1, batchNumber: 1 })
+    setPrizeForm({ id: '', name: '', quantity: 1, batchNumber: drawMode === 'batch' ? 2 : 1 })
     setFormErrors([])
     setIsDialogOpen(true)
   }
@@ -314,8 +314,9 @@ export default function EditEvent() {
     const errors: string[] = []
     if (!prizeForm.name.trim()) errors.push('Prize name is required')
     if (prizeForm.quantity < 1) errors.push('Quantity must be at least 1')
-    if (drawMode === 'batch' && prizeForm.batchNumber >= 2 && prizeForm.batchNumber >= prizeForm.quantity) {
-      errors.push('Batch number must be less than quantity')
+    if (drawMode === 'batch') {
+      if (prizeForm.batchNumber < 2) errors.push('Batch number must be at least 2')
+      if (prizeForm.batchNumber >= prizeForm.quantity) errors.push('Batch number must be less than quantity')
     }
     if (errors.length > 0) {
       setFormErrors(errors)
@@ -358,15 +359,20 @@ export default function EditEvent() {
     }
   }
 
-  // Batch preview
-  const batchPreview = useMemo(() => {
-    if (drawMode !== 'batch' || prizeForm.batchNumber < 2) return null
+  // Draw preview
+  const drawPreview = useMemo(() => {
+    if (drawMode === 'one_by_one') {
+      if (prizeForm.quantity < 1) return null
+      return `Prize ini akan di-draw <strong>satu per satu</strong> sebanyak <strong>${prizeForm.quantity} kali</strong>`
+    }
+    // Batch mode: only show when valid range
+    if (prizeForm.batchNumber < 2 || prizeForm.batchNumber >= prizeForm.quantity) return null
     const totalBatches = Math.ceil(prizeForm.quantity / prizeForm.batchNumber)
     const remainder = prizeForm.quantity % prizeForm.batchNumber
     if (remainder === 0) {
-      return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, masing-masing batch <strong>${prizeForm.batchNumber}</strong>`
+      return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, tiap batch di-draw <strong>${prizeForm.batchNumber} kali</strong> draw`
     }
-    return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, masing-masing batch <strong>${prizeForm.batchNumber}</strong>, dengan batch terakhir berjumlah <strong>${remainder}</strong>`
+    return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, tiap batch di-draw <strong>${prizeForm.batchNumber} kali</strong>, dengan batch terakhir sebanyak <strong>${remainder} kali</strong> draw`
   }, [drawMode, prizeForm.quantity, prizeForm.batchNumber])
 
   // Background image handling
@@ -543,12 +549,17 @@ export default function EditEvent() {
                 <div className="space-y-2">
                   <Label>Animation Type <span className="text-destructive">*</span></Label>
                   <RadioGroup value={animationType} onValueChange={(v) => setAnimationType(v as 'sphere' | 'rolling' | 'randomize')} className="flex gap-4">
-                    {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => (
-                      <div key={value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={value} id={`edit-animationType-${value}`} />
-                        <Label htmlFor={`edit-animationType-${value}`} className="cursor-pointer">{label}</Label>
-                      </div>
-                    ))}
+                    {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
+                      const isDisabled = value !== 'randomize'
+                      return (
+                        <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
+                          <RadioGroupItem value={value} id={`edit-animationType-${value}`} disabled={isDisabled} />
+                          <Label htmlFor={`edit-animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                            {label}{isDisabled && ' (Coming Soon)'}
+                          </Label>
+                        </div>
+                      )
+                    })}
                   </RadioGroup>
                 </div>
               </CardContent>
@@ -698,10 +709,11 @@ export default function EditEvent() {
                   value={prizeForm.batchNumber}
                   onChange={(e) => setPrizeForm({ ...prizeForm, batchNumber: parseInt(e.target.value) || 2 })}
                 />
-                {batchPreview && (
-                  <div className="rounded-md bg-muted p-3 text-sm" dangerouslySetInnerHTML={{ __html: batchPreview }} />
-                )}
               </div>
+            )}
+
+            {drawPreview && (
+              <div className="rounded-md bg-muted p-3 text-sm" dangerouslySetInnerHTML={{ __html: drawPreview }} />
             )}
 
             {formErrors.length > 0 && (

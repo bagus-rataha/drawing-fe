@@ -62,17 +62,23 @@ interface StepPrizesProps {
 /**
  * Generate batch preview sentence
  */
-function getBatchPreview(quantity: number, batchNumber: number): string | null {
-  if (batchNumber < 2 || quantity < 2) return null
+function getDrawPreview(quantity: number, batchNumber: number, drawMode: 'one_by_one' | 'batch'): string | null {
+  if (drawMode === 'one_by_one') {
+    if (quantity < 1) return null
+    return `Prize ini akan di-draw **satu per satu** sebanyak **${quantity} kali**`
+  }
+
+  // Batch mode: only show when valid range
+  if (batchNumber < 2 || batchNumber >= quantity) return null
 
   const totalBatches = Math.ceil(quantity / batchNumber)
   const remainder = quantity % batchNumber
 
   if (remainder === 0) {
-    return `Prize ini terdiri dari **${totalBatches} batch**, masing-masing batch **${batchNumber}**`
+    return `Prize ini terdiri dari **${totalBatches} batch**, tiap batch di-draw **${batchNumber} kali**`
   }
 
-  return `Prize ini terdiri dari **${totalBatches} batch**, masing-masing batch **${batchNumber}**, dengan batch terakhir berjumlah **${remainder}**`
+  return `Prize ini terdiri dari **${totalBatches} batch**, tiap batch di-draw **${batchNumber} kali**, dengan batch terakhir sebanyak **${remainder} kali** draw`
 }
 
 /**
@@ -226,7 +232,9 @@ export function StepPrizes({
 
   const handleAddPrize = () => {
     setEditingPrize(null)
-    setFormData(createEmptyPrize())
+    const empty = createEmptyPrize()
+    if (isBatchMode) empty.batchNumber = 2
+    setFormData(empty)
     setFormErrors([])
     setIsDialogOpen(true)
   }
@@ -250,7 +258,11 @@ export function StepPrizes({
     }
 
     // Batch number validation
-    if (isBatchMode && formData.batchNumber >= 2) {
+    if (isBatchMode) {
+      if (formData.batchNumber < 2) {
+        setFormErrors(['Batch number must be at least 2'])
+        return
+      }
       if (formData.batchNumber >= formData.quantity) {
         setFormErrors(['Batch number must be less than quantity'])
         return
@@ -272,11 +284,10 @@ export function StepPrizes({
     setFormErrors([])
   }
 
-  // Batch preview
-  const batchPreview = useMemo(() => {
-    if (!isBatchMode || formData.batchNumber < 2) return null
-    return getBatchPreview(formData.quantity, formData.batchNumber)
-  }, [isBatchMode, formData.quantity, formData.batchNumber])
+  // Draw preview
+  const drawPreview = useMemo(() => {
+    return getDrawPreview(formData.quantity, formData.batchNumber, drawMode)
+  }, [drawMode, formData.quantity, formData.batchNumber])
 
   const handleSubmit = () => {
     const validation = validatePrizes(prizes)
@@ -437,17 +448,17 @@ export function StepPrizes({
                 <p className="text-sm text-muted-foreground">
                   Number of winners per batch (min 2, max {Math.max(formData.quantity - 1, 2)})
                 </p>
-
-                {/* Batch Preview */}
-                {batchPreview && (
-                  <div
-                    className="rounded-md bg-muted p-3 text-sm"
-                    dangerouslySetInnerHTML={{
-                      __html: batchPreview.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
-                    }}
-                  />
-                )}
               </div>
+            )}
+
+            {/* Draw Preview */}
+            {drawPreview && (
+              <div
+                className="rounded-md bg-muted p-3 text-sm"
+                dangerouslySetInnerHTML={{
+                  __html: drawPreview.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
+                }}
+              />
             )}
 
             {/* Form Errors */}
