@@ -23,6 +23,7 @@ import {
   ImageIcon,
 } from 'lucide-react'
 import { useEvent, usePrizes } from '@/hooks'
+import { ImportedDataTable } from '@/components/ImportedDataTable'
 import { formatDate, formatNumber } from '@/utils/helpers'
 import {
   EVENT_STATUS_LABELS,
@@ -286,7 +287,7 @@ export function EventDetail() {
           </Card>
 
           {/* Prizes Section */}
-          <Card>
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Gift className="h-5 w-5 text-primary" />
@@ -329,6 +330,11 @@ export function EventDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Imported Data Section */}
+          {event.import_status === 'done' && (
+            <ImportedDataTable eventId={event.id} />
+          )}
         </div>
       </main>
     </div>

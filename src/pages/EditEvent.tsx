@@ -64,6 +64,7 @@ import {
   ANIMATION_TYPE_LABELS,
   WINNER_DISPLAY_MODE_LABELS,
 } from '@/utils/constants'
+import { ImportedDataTable } from '@/components/ImportedDataTable'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 
@@ -605,6 +606,11 @@ export default function EditEvent() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Imported Data Section */}
+            {event.import_status === 'done' && id && (
+              <ImportedDataTable eventId={id} allowDelete />
+            )}
 
             {/* Display Settings Section */}
             <Card>

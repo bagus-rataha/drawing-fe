@@ -37,6 +37,20 @@ export {
   winnerKeys,
 } from './useWinners'
 
+// Participant hooks
+export {
+  useParticipantList,
+  useDeleteParticipant,
+  participantKeys,
+} from './useParticipantList'
+
+// Coupon hooks
+export {
+  useCouponList,
+  useDeleteCoupon,
+  couponKeys,
+} from './useCouponList'
+
 // Utility hooks
 export { useDebounce } from './useDebounce'
 export { useUnsavedChangesWarning } from './useUnsavedChangesWarning'

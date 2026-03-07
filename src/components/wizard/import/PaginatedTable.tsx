@@ -52,6 +52,8 @@ interface PaginatedTableProps {
   onSearchChange?: (query: string) => void
   /** Controlled search value (for server-side search) */
   searchValue?: string
+  /** Custom cell renderer. Return undefined to use default rendering. */
+  renderCell?: (header: string, value: string | number | undefined, row: Record<string, string | number | undefined>) => React.ReactNode | undefined
 }
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100]
@@ -76,6 +78,7 @@ export function PaginatedTable({
   onPageSizeChange,
   onSearchChange,
   searchValue,
+  renderCell,
 }: PaginatedTableProps) {
   // Client-side pagination state (used when serverSide=false)
   const [clientPage, setClientPage] = useState(1)
@@ -231,11 +234,14 @@ export function PaginatedTable({
                   <TableCell className="text-muted-foreground">
                     {startIndex + index + 1}
                   </TableCell>
-                  {headers.map((header) => (
-                    <TableCell key={header} className="truncate max-w-xs">
-                      {String(row[header] ?? '')}
-                    </TableCell>
-                  ))}
+                  {headers.map((header) => {
+                    const customCell = renderCell?.(header, row[header], row)
+                    return (
+                      <TableCell key={header} className="truncate max-w-xs">
+                        {customCell !== undefined ? customCell : String(row[header] ?? '')}
+                      </TableCell>
+                    )
+                  })}
                   {onDelete && rowKey && (
                     <TableCell className="text-right">
                       <Button

@@ -123,7 +123,7 @@ export function ConfirmDialog({
               <p className="text-sm text-muted-foreground">
                 To confirm, type this code exactly (case sensitive):
               </p>
-              <code className="mt-1 block font-mono text-sm font-semibold text-foreground">
+              <code className="mt-1 block select-none font-mono text-sm font-semibold text-foreground" onCopy={(e) => e.preventDefault()}>
                 {confirmationCode}
               </code>
             </div>

@@ -142,3 +142,35 @@ export interface ParticipantResponse {
   coupon_import_identifier: string
   custom_fields: Record<string, unknown>
 }
+
+// Paginated response wrapper
+export interface PaginatedResponse<T> {
+  items: T[]
+  page: number
+  limit: number
+  total_items: number
+  total_pages: number
+}
+
+// Participant list (from GET /participants/event/:eventId)
+export interface ParticipantListResponse {
+  id: string
+  name: string
+  email: string
+  phone: string
+  participant_import_identifier: string
+  custom_fields: Record<string, unknown>
+  coupon_count: number
+  active_coupon_count: number
+  win_count: number
+  status: string
+}
+
+// Coupon list (from GET /coupons/event/:eventId)
+export interface CouponListResponse {
+  id: string
+  coupon_import_identifier: string
+  participant_import_identifier: string
+  participant_name: string
+  status: string
+}

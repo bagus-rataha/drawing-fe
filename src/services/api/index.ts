@@ -1,3 +1,5 @@
 export * from './authApi'
 export * from './eventApi'
 export * from './prizeApi'
+export * from './participantApi'
+export * from './couponApi'
