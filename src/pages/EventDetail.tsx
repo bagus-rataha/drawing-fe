@@ -3,8 +3,10 @@
  * @description Event detail page (readonly view)
  */
 
+import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
+import { startEvent } from '@/services/api/eventApi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,13 +44,16 @@ export function EventDetail() {
 
   const isLoading = isLoadingEvent || isLoadingPrizes
 
+  const [isStarting, setIsStarting] = useState(false)
+
   // Action button logic
   const canEdit = event?.status === 'draft'
   const canImport = event?.import_status === 'draft' || event?.import_status === 'fail'
-  const canViewHistory = event?.status === 'in_progress' || event?.status === 'completed'
+  const canViewHistory = event?.status === 'in_progress' || event?.status === 'completed' || event?.status === 'complete'
+  const canDraw = event?.import_status === 'done'
 
-  // Draw button logic
-  const isDrawComplete = event?.status === 'completed'
+  // Draw button logic (backend may return 'complete' or 'completed')
+  const isDrawComplete = event?.status === 'completed' || event?.status === 'complete'
   let drawButtonText = 'Start Draw'
   let DrawButtonIcon = Play
   if (isDrawComplete) {
@@ -154,12 +159,32 @@ export function EventDetail() {
               </Button>
             )}
 
-            <Button variant={isDrawComplete ? 'outline' : 'default'} asChild>
-              <Link to={`/draw/${event.id}`}>
+            {canDraw && !isDrawComplete && event.status === 'draft' ? (
+              <Button
+                disabled={isStarting}
+                onClick={async () => {
+                  setIsStarting(true)
+                  try {
+                    await startEvent(event.id)
+                    navigate(`/draw/${event.id}`)
+                  } catch (error) {
+                    console.error('[EventDetail] Failed to start event:', error)
+                  } finally {
+                    setIsStarting(false)
+                  }
+                }}
+              >
                 <DrawButtonIcon className="mr-2 h-4 w-4" />
-                {drawButtonText}
-              </Link>
-            </Button>
+                {isStarting ? 'Starting...' : drawButtonText}
+              </Button>
+            ) : canDraw && !isDrawComplete ? (
+              <Button asChild>
+                <Link to={`/draw/${event.id}`}>
+                  <DrawButtonIcon className="mr-2 h-4 w-4" />
+                  {drawButtonText}
+                </Link>
+              </Button>
+            ) : null}
 
             {canViewHistory && (
               <Button variant="outline" asChild>

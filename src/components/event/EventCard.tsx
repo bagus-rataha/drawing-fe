@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { EventListResponse } from '@/types/api'
+import { startEvent } from '@/services/api/eventApi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -31,6 +32,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onDelete }: EventCardProps) {
+  const navigate = useNavigate()
   const statusLabel = EVENT_STATUS_LABELS[event.status] || event.status
   const winRuleLabel = WIN_RULE_LABELS[event.win_rule] || event.win_rule
   const importStatusLabel = IMPORT_STATUS_LABELS[event.import_status] || event.import_status
@@ -39,10 +41,10 @@ export function EventCard({ event, onDelete }: EventCardProps) {
   const canEdit = event.status === 'draft'
   const canDelete = event.status === 'draft'
   const canImport = event.import_status === 'draft' || event.import_status === 'fail'
-  const canViewHistory = event.status === 'in_progress' || event.status === 'completed'
+  const canViewHistory = event.status === 'in_progress' || event.status === 'completed' || event.status === 'complete'
 
-  // Draw button logic
-  const isDrawComplete = event.status === 'completed'
+  // Draw button logic (backend may return 'complete' or 'completed')
+  const isDrawComplete = event.status === 'completed' || event.status === 'complete'
   let drawButtonText = 'Start Draw'
   let DrawButtonIcon = Play
   if (isDrawComplete) {
@@ -179,15 +181,34 @@ export function EventCard({ event, onDelete }: EventCardProps) {
         Created {formatDate(event.created_at)}
       </div>
 
-      {/* Draw button */}
-      <div className="mt-5">
-        <Button size="sm" variant={isDrawComplete ? 'outline' : 'default'} asChild>
-          <Link to={`/draw/${event.id}`}>
-            <DrawButtonIcon className="mr-2 h-4 w-4" />
-            {drawButtonText}
-          </Link>
-        </Button>
-      </div>
+      {/* Draw button — only show if import is done and event is not completed */}
+      {event.import_status === 'done' && !isDrawComplete && (
+        <div className="mt-5">
+          {event.status === 'draft' ? (
+            <Button
+              size="sm"
+              onClick={async () => {
+                try {
+                  await startEvent(event.id)
+                  navigate(`/draw/${event.id}`)
+                } catch (error) {
+                  console.error('[EventCard] Failed to start event:', error)
+                }
+              }}
+            >
+              <DrawButtonIcon className="mr-2 h-4 w-4" />
+              {drawButtonText}
+            </Button>
+          ) : (
+            <Button size="sm" asChild>
+              <Link to={`/draw/${event.id}`}>
+                <DrawButtonIcon className="mr-2 h-4 w-4" />
+                {drawButtonText}
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

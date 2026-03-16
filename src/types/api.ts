@@ -174,3 +174,28 @@ export interface CouponListResponse {
   participant_name: string
   status: string
 }
+
+// Drawing
+export interface DrawingStatusResponse {
+  event_status: string
+  sequence: number
+  current_batch: number
+  total_batch: number
+  total_batch_winner: number
+  total_batch_remaining_winner: number
+  empty_slots: number[]
+  current_batch_draw: WinnerResponse[]
+  total_winner: number
+  total_remaining_winner: number
+}
+
+export interface AnimationCouponResponse {
+  coupon_import_identifier: string
+  participant_import_identifier: string
+  participant_name: string
+}
+
+export interface CancelWinnerRequest {
+  winner_id: string
+  cancel_reason: string
+}

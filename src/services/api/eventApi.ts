@@ -40,6 +40,13 @@ export async function updateEvent(id: string, data: UpdateEventRequest): Promise
   return response.data.data
 }
 
+export async function startEvent(id: string): Promise<void> {
+  const response = await apiClient.post<ApiResponse<null>>(`/events/${id}/start`)
+  if (!response.data.success) {
+    throw new Error(response.data.message)
+  }
+}
+
 export async function deleteEvent(id: string): Promise<void> {
   const response = await apiClient.delete<ApiResponse<null>>(`/events/${id}`)
   if (!response.data.success) {

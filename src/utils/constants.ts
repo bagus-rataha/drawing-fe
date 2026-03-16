@@ -144,6 +144,7 @@ export const EVENT_STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
   in_progress: 'In Progress',
   completed: 'Completed',
+  complete: 'Completed',
 }
 
 /** Human-readable labels for win rule types */

@@ -1,13 +1,14 @@
 /**
  * @file components/draw/PrizeWinnersModal.tsx
- * @description Modal showing confirmed winners for a prize with pagination
+ * @description Modal showing confirmed winners and cancelled/void winners for a prize
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { winnerService } from '@/services'
-import type { Winner, Prize } from '@/types'
+import { getPrize } from '@/services/api/prizeApi'
+import type { WinnerResponse } from '@/types/api'
+import type { Prize } from '@/types'
 
 interface PrizeWinnersModalProps {
   isOpen: boolean
@@ -19,15 +20,57 @@ const ITEMS_PER_PAGE = 10
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    valid: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700',
-    skipped: 'bg-amber-100 text-amber-700',
+    active: 'bg-green-100 text-green-700',
+    void: 'bg-red-100 text-red-700',
   }
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.valid}`}>
-      {status}
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.active}`}>
+      {status === 'active' ? 'confirmed' : status}
     </span>
+  )
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  itemsPerPage: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalPages <= 1) return null
+  const startIndex = (currentPage - 1) * itemsPerPage
+  return (
+    <div className="px-6 py-3 border-t border-[#e2e8f0] flex items-center justify-between">
+      <p className="text-sm text-[#64748b]">
+        Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg hover:bg-[#f6f9fc] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4 text-[#64748b]" />
+        </button>
+        <span className="text-sm text-[#0a2540] min-w-[80px] text-center">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg hover:bg-[#f6f9fc] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 text-[#64748b]" />
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -36,51 +79,64 @@ export function PrizeWinnersModal({
   onClose,
   prize,
 }: PrizeWinnersModalProps) {
-  const [winners, setWinners] = useState<Winner[]>([])
+  const [allWinners, setAllWinners] = useState<WinnerResponse[]>([])
   const [loading, setLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [confirmedPage, setConfirmedPage] = useState(1)
+  const [voidPage, setVoidPage] = useState(1)
 
-  // Reset page when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentPage(1)
+      setConfirmedPage(1)
+      setVoidPage(1)
     }
   }, [isOpen])
 
-  // Load winners data
   useEffect(() => {
     if (isOpen && prize) {
       setLoading(true)
-      winnerService
-        .getConfirmedByPrizeId(prize.id)
-        .then(setWinners)
+      getPrize(prize.id)
+        .then((prizeData) => {
+          setAllWinners(prizeData.winners || [])
+        })
+        .catch(console.error)
         .finally(() => setLoading(false))
     }
   }, [isOpen, prize])
 
+  const confirmedWinners = useMemo(
+    () => allWinners.filter(w => w.status === 'active' && w.confirmed_at),
+    [allWinners]
+  )
+
+  const voidWinners = useMemo(
+    () => allWinners.filter(w => w.status === 'void'),
+    [allWinners]
+  )
+
   if (!isOpen || !prize) return null
 
-  // Pagination calculations
-  const totalPages = Math.ceil(winners.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedWinners = winners.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  const confirmedTotalPages = Math.ceil(confirmedWinners.length / ITEMS_PER_PAGE)
+  const confirmedStartIndex = (confirmedPage - 1) * ITEMS_PER_PAGE
+  const paginatedConfirmed = confirmedWinners.slice(confirmedStartIndex, confirmedStartIndex + ITEMS_PER_PAGE)
+
+  const voidTotalPages = Math.ceil(voidWinners.length / ITEMS_PER_PAGE)
+  const voidStartIndex = (voidPage - 1) * ITEMS_PER_PAGE
+  const paginatedVoid = voidWinners.slice(voidStartIndex, voidStartIndex + ITEMS_PER_PAGE)
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden mx-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden mx-4">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#0a2540]">{prize.name}</h2>
             <p className="text-sm text-[#64748b]">
-              {winners.length} / {prize.quantity} winners
+              {confirmedWinners.length} / {prize.quantity} confirmed
+              {voidWinners.length > 0 && (
+                <span className="text-red-500 ml-2">({voidWinners.length} cancelled)</span>
+              )}
             </p>
           </div>
           <button
@@ -92,92 +148,125 @@ export function PrizeWinnersModal({
         </div>
 
         {/* Content */}
-        {loading ? (
-          <div className="py-8 text-center text-[#64748b]">Loading...</div>
-        ) : winners.length === 0 ? (
-          <div className="py-8 text-center text-[#64748b]">
-            No confirmed winners yet
-          </div>
-        ) : (
-          <>
-            {/* Table */}
-            <div className="overflow-auto max-h-[50vh]">
-              <table className="w-full">
-                <thead className="bg-[#f6f9fc] sticky top-0">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">
-                      #
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">
-                      Coupon
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">
-                      Participant
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">
-                      Confirmed At
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#e2e8f0]">
-                  {paginatedWinners.map((winner, index) => (
-                    <tr key={winner.id} className="hover:bg-[#f6f9fc]">
-                      <td className="px-4 py-3 text-sm text-[#64748b]">
-                        {startIndex + index + 1}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-[#0a2540]">
-                        {winner.couponId}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[#0a2540]">
-                        <div>{winner.participantName || '-'}</div>
-                        <div className="text-xs text-[#64748b]">{winner.participantId}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={winner.status} />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-[#64748b]">
-                        {winner.confirmedAt
-                          ? format(new Date(winner.confirmedAt), 'dd MMM HH:mm:ss')
-                          : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="overflow-auto max-h-[calc(85vh-80px)]">
+          {loading ? (
+            <div className="py-8 text-center text-[#64748b]">Loading...</div>
+          ) : confirmedWinners.length === 0 && voidWinners.length === 0 ? (
+            <div className="py-8 text-center text-[#64748b]">
+              No winners yet
             </div>
-
-            {/* Pagination Footer */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-[#e2e8f0] flex items-center justify-between">
-                <p className="text-sm text-[#64748b]">
-                  Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, winners.length)} of {winners.length}
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-[#f6f9fc] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-[#64748b]" />
-                  </button>
-                  <span className="text-sm text-[#0a2540] min-w-[80px] text-center">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-[#f6f9fc] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 text-[#64748b]" />
-                  </button>
+          ) : (
+            <>
+              {/* Confirmed Winners Table */}
+              {confirmedWinners.length > 0 && (
+                <div>
+                  <div className="px-6 py-3 bg-green-50 border-b border-green-100">
+                    <h3 className="text-sm font-semibold text-green-800">
+                      Confirmed Winners ({confirmedWinners.length})
+                    </h3>
+                  </div>
+                  <table className="w-full">
+                    <thead className="bg-[#f6f9fc] sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Batch</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Line</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Coupon</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Participant</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Confirmed At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e2e8f0]">
+                      {paginatedConfirmed.map((winner) => (
+                        <tr key={winner.id} className="hover:bg-[#f6f9fc]">
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
+                            {winner.batch_number}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
+                            {winner.line_number}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-[#0a2540]">
+                            {winner.coupon?.coupon_import_identifier || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#0a2540]">
+                            <div>{winner.coupon?.participant?.name || '-'}</div>
+                            <div className="text-xs text-[#64748b]">
+                              {winner.coupon?.participant?.participant_import_identifier || '-'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
+                            {winner.confirmed_at
+                              ? format(new Date(winner.confirmed_at), 'dd MMM HH:mm:ss')
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Pagination
+                    currentPage={confirmedPage}
+                    totalPages={confirmedTotalPages}
+                    totalItems={confirmedWinners.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setConfirmedPage}
+                  />
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+
+              {/* Cancelled/Void Winners Table */}
+              {voidWinners.length > 0 && (
+                <div>
+                  <div className="px-6 py-3 bg-red-50 border-b border-red-100 border-t border-t-[#e2e8f0]">
+                    <h3 className="text-sm font-semibold text-red-800">
+                      Cancelled / Void ({voidWinners.length})
+                    </h3>
+                  </div>
+                  <table className="w-full">
+                    <thead className="bg-[#f6f9fc] sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Batch</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Line</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Coupon</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Participant</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-[#64748b] uppercase">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e2e8f0]">
+                      {paginatedVoid.map((winner) => (
+                        <tr key={winner.id} className="hover:bg-red-50/50">
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
+                            {winner.batch_number}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#64748b]">
+                            {winner.line_number}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-[#0a2540]">
+                            {winner.coupon?.coupon_import_identifier || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-[#0a2540]">
+                            <div>{winner.coupon?.participant?.name || '-'}</div>
+                            <div className="text-xs text-[#64748b]">
+                              {winner.coupon?.participant?.participant_import_identifier || '-'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-red-600">
+                            {winner.cancel_reason || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Pagination
+                    currentPage={voidPage}
+                    totalPages={voidTotalPages}
+                    totalItems={voidWinners.length}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    onPageChange={setVoidPage}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
