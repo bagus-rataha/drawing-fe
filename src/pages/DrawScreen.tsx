@@ -7,9 +7,9 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trophy } from 'lucide-react'
 import { getEvent } from '@/services/api/eventApi'
 import { getPrizesByEvent } from '@/services/api/prizeApi'
 import { getDrawingStatus, getAnimationCoupons } from '@/services/api/drawingApi'
@@ -113,6 +113,7 @@ export function DrawScreen() {
   const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [selectedPrizeForModal, setSelectedPrizeForModal] = useState<Prize | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [isEventComplete, setIsEventComplete] = useState(false)
 
   // Loading states to prevent double-clicks
   const [isRedrawing, setIsRedrawing] = useState(false)
@@ -215,9 +216,10 @@ export function DrawScreen() {
         setEvent(eventData)
         setPrizes(prizesData)
 
-        // Safety net: redirect completed events to history (backend may return 'complete' or 'completed')
+        // Show completion screen for completed events (backend may return 'complete' or 'completed')
         if (eventData.status === 'completed' || eventData.status === 'complete') {
-          navigate(`/history/${eventId}`)
+          setIsEventComplete(true)
+          setLoading(false)
           return
         }
 
@@ -243,9 +245,10 @@ export function DrawScreen() {
             }
           }
 
-          // If event is complete, navigate to history
+          // If event is complete, show completion screen
           if (statusData.event_status === 'complete') {
-            navigate(`/history/${eventId}`)
+            setIsEventComplete(true)
+            setLoading(false)
             return
           }
         } catch (drawError) {
@@ -424,16 +427,24 @@ export function DrawScreen() {
       queryClient.invalidateQueries({ queryKey: winnerKeys.grouped(eventId) })
       queryClient.invalidateQueries({ queryKey: winnerKeys.count(eventId) })
 
-      // Refetch drawing status to see what's next
-      const newStatus = await fetchDrawingStatus()
-
-      // Refresh prizes for sidebar
-      const updatedPrizes = await getPrizesByEvent(eventId)
+      // Refetch drawing status and event to detect completion
+      const [newStatus, updatedEvent, updatedPrizes] = await Promise.all([
+        fetchDrawingStatus(),
+        getEvent(eventId),
+        getPrizesByEvent(eventId),
+      ])
+      setEvent(updatedEvent)
       setPrizes(updatedPrizes)
 
-      if (newStatus?.event_status === 'complete') {
-        // All prizes done
-        navigate(`/history/${eventId}`)
+      // Check completion from either drawing status or event status
+      const isComplete =
+        newStatus?.event_status === 'complete' ||
+        updatedEvent.status === 'complete' ||
+        updatedEvent.status === 'completed'
+
+      if (isComplete) {
+        // All prizes done — show completion screen
+        setIsEventComplete(true)
       } else {
         // Reset to idle for next batch/prize
         resetToIdle()
@@ -468,6 +479,41 @@ export function DrawScreen() {
     return (
       <div className="min-h-screen bg-[#f6f9fc] flex items-center justify-center">
         <div className="text-[#64748b]">Loading...</div>
+      </div>
+    )
+  }
+
+  if (isEventComplete) {
+    return (
+      <div className="min-h-screen bg-[#f6f9fc] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
+            <Trophy className="w-10 h-10 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-[#0a2540] mb-2">
+            Drawing Complete
+          </h1>
+          <p className="text-[#64748b] mb-8">
+            Event <span className="font-medium text-[#0a2540]">{event?.name}</span> has finished.
+            All prizes have been drawn successfully.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              to={`/history/${eventId}`}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#635bff] text-white font-medium rounded-xl hover:bg-[#524acc] transition-colors"
+            >
+              <Trophy className="w-4 h-4" />
+              View Draw Results
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 text-[#64748b] font-medium rounded-xl hover:bg-[#e2e8f0] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Events
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }

@@ -19,6 +19,7 @@ import type {
   Winner,
   Prize,
 } from '@/types'
+import type { PrizesListResponse, WinnerResponse } from '@/types/api'
 import {
   REQUIRED_IMPORT_COLUMNS,
   OPTIONAL_IMPORT_COLUMNS,
@@ -377,6 +378,126 @@ export function exportWinnersToExcel(
     ),
   }))
   ws['!cols'] = colWidths
+
+  // Generate filename
+  const sanitizedName = eventName.replace(/[^a-zA-Z0-9]/g, '_')
+  const timestamp = new Date().toISOString().slice(0, 10)
+  const filename = `${sanitizedName}_winners_${timestamp}.xlsx`
+
+  // Download file
+  XLSX.writeFile(wb, filename)
+}
+
+/**
+ * Auto-fit column widths for a worksheet based on data
+ */
+function autoFitColumns(ws: XLSX.WorkSheet, data: Record<string, unknown>[]): void {
+  if (data.length === 0) return
+  const colWidths = Object.keys(data[0]).map((key) => ({
+    wch: Math.max(
+      key.length,
+      ...data.map((row) => String(row[key] || '').length)
+    ),
+  }))
+  ws['!cols'] = colWidths
+}
+
+/**
+ * Format a datetime string for Excel display
+ */
+function formatDateTimeForExcel(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-'
+  try {
+    return new Date(dateStr).toLocaleString('id-ID')
+  } catch {
+    return dateStr
+  }
+}
+
+/**
+ * Map a WinnerResponse to a flat row object for Excel export
+ */
+function winnerToRow(w: WinnerResponse, index: number) {
+  return {
+    '#': index + 1,
+    'Coupon ID': w.coupon?.coupon_import_identifier || '-',
+    'Participant ID': w.coupon?.participant?.participant_import_identifier || '-',
+    'Participant Name': w.coupon?.participant?.name || '-',
+    'Batch': w.batch_number,
+    'Line': w.line_number,
+    'Confirmed At': formatDateTimeForExcel(w.confirmed_at),
+  }
+}
+
+/**
+ * Map a void WinnerResponse to a flat row object for Excel export
+ */
+function voidWinnerToRow(w: WinnerResponse, index: number, prizeName: string) {
+  return {
+    '#': index + 1,
+    'Prize': prizeName,
+    'Coupon ID': w.coupon?.coupon_import_identifier || '-',
+    'Participant ID': w.coupon?.participant?.participant_import_identifier || '-',
+    'Participant Name': w.coupon?.participant?.name || '-',
+    'Batch': w.batch_number,
+    'Line': w.line_number,
+    'Reason': w.cancel_reason || '-',
+    'Drawn At': formatDateTimeForExcel(w.created_at),
+  }
+}
+
+/**
+ * Exports winners to Excel with separate sheets per prize + a cancelled sheet
+ * @param prizes - Prize data from backend (each prize includes its winners)
+ * @param eventName - Event name for filename
+ */
+export function exportHistoryToExcel(
+  prizes: PrizesListResponse[],
+  eventName: string
+): void {
+  const wb = XLSX.utils.book_new()
+  const allVoid: { winner: WinnerResponse; prizeName: string }[] = []
+
+  // Create a sheet per prize with confirmed winners
+  for (const prize of prizes) {
+    const confirmed = (prize.winners || []).filter(
+      (w) => w.status === 'active' && w.confirmed_at
+    )
+    const voided = (prize.winners || []).filter((w) => w.status === 'void')
+
+    // Collect void winners for the cancelled sheet
+    for (const v of voided) {
+      allVoid.push({ winner: v, prizeName: prize.name })
+    }
+
+    // Build rows for this prize
+    const rows = confirmed.map((w, i) => winnerToRow(w, i))
+
+    if (rows.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(rows)
+      autoFitColumns(ws, rows)
+      // Sheet name max 31 chars in Excel
+      const sheetName = prize.name.slice(0, 31)
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+    } else {
+      // Add empty sheet with headers
+      const ws = XLSX.utils.json_to_sheet([], {
+        header: ['#', 'Coupon ID', 'Participant ID', 'Participant Name', 'Batch', 'Line', 'Confirmed At'],
+      })
+      const sheetName = prize.name.slice(0, 31)
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+    }
+  }
+
+  // Create cancelled/void sheet
+  if (allVoid.length > 0) {
+    const voidRows = allVoid.map(({ winner, prizeName }, i) =>
+      voidWinnerToRow(winner, i, prizeName)
+    )
+    const ws = XLSX.utils.json_to_sheet(voidRows)
+    autoFitColumns(ws, voidRows)
+    XLSX.utils.book_append_sheet(wb, ws, 'Cancelled')
+  }
 
   // Generate filename
   const sanitizedName = eventName.replace(/[^a-zA-Z0-9]/g, '_')

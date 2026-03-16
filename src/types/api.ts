@@ -139,7 +139,7 @@ export interface ParticipantResponse {
   name: string
   email: string
   phone: string
-  coupon_import_identifier: string
+  participant_import_identifier: string
   custom_fields: Record<string, unknown>
 }
 
