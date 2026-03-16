@@ -66,6 +66,8 @@ export function EventWizard() {
       quantity: p.quantity,
       sequence: index + 1,
       batch_number: eventInfo.drawMode === 'batch' ? p.batchNumber : 1,
+      prize_image: p.image || undefined,
+      background_image: p.backgroundImage || undefined,
     }))
 
     // Build request

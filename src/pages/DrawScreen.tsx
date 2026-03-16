@@ -26,6 +26,7 @@ import { DrawControls } from '@/components/draw/DrawControls'
 import { PrizeWinnersModal } from '@/components/draw/PrizeWinnersModal'
 import { Confetti, fireConfettiBurst } from '@/components/draw/Confetti'
 import { SPHERE_CONFIG } from '@/utils/constants'
+import { resolveImageUrl } from '@/utils/helpers'
 
 // Default grid configuration
 const DEFAULT_GRID = {
@@ -87,6 +88,8 @@ function mapApiPrizeToLocal(p: PrizesListResponse): Prize {
     id: p.id,
     eventId: '',
     name: p.name,
+    image: resolveImageUrl(p.prize_image),
+    backgroundImage: resolveImageUrl(p.background_image),
     quantity: p.quantity,
     sequence: p.sequence,
     drawnCount: p.winners?.filter(w => w.status === 'active' && w.confirmed_at).length || 0,
@@ -169,8 +172,9 @@ export function DrawScreen() {
   const gridX = DEFAULT_GRID.gridX
   const gridY = DEFAULT_GRID.gridY
 
-  // Background image (from event settings if available)
-  const backgroundImage: string | undefined = undefined
+  // Background image from current prize
+  const currentApiPrize = prizes[currentPrizeIndex] || null
+  const backgroundImage = resolveImageUrl(currentApiPrize?.background_image)
 
   // Calculate pagination
   const cardsPerPage = gridX * gridY
@@ -345,7 +349,7 @@ export function DrawScreen() {
   // Handle back navigation
   const handleBack = useCallback(() => {
     if (eventId) {
-      navigate(`/event/${eventId}`)
+      navigate(`/events/${eventId}`)
     } else {
       navigate('/')
     }

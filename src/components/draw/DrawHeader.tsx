@@ -24,7 +24,7 @@ export function DrawHeader({
 
   const handleBack = () => {
     if (event) {
-      navigate(`/event/${event.id}/edit`)
+      navigate(`/events/${event.id}/edit`)
     } else {
       navigate('/')
     }

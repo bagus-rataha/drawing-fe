@@ -252,3 +252,18 @@ export function generateConfirmationCode(): string {
 export function generateDeleteConfirmation(identifier: string): string {
   return `${identifier}/${generateConfirmationCode()}`
 }
+
+/**
+ * Resolve an image path to a full URL.
+ * - If the value is already a full URL or base64 data URI, return as-is.
+ * - If it's a relative path from the API, prefix with VITE_STORAGE_BASE_URL.
+ * - Returns undefined for falsy values.
+ */
+export function resolveImageUrl(path: string | undefined | null): string | undefined {
+  if (!path) return undefined
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  const base = import.meta.env.VITE_STORAGE_BASE_URL || ''
+  return `${base}${path.startsWith('/') ? '' : '/'}${path}`
+}

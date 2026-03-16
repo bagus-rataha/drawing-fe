@@ -80,6 +80,8 @@ export interface PrizeRequest {
   quantity: number
   sequence: number
   batch_number: number
+  prize_image?: string
+  background_image?: string
 }
 
 export interface BulkUpdatePrizeRequest {
@@ -88,6 +90,8 @@ export interface BulkUpdatePrizeRequest {
   quantity?: number
   sequence?: number
   batch_number?: number
+  prize_image?: string
+  background_image?: string
 }
 
 export interface PrizeResponse {
@@ -98,6 +102,8 @@ export interface PrizeResponse {
   sequence: number
   batch_number: number
   current_batch: number
+  prize_image: string
+  background_image: string
   created_at: string
   updated_at: string
   winners: WinnerResponse[]

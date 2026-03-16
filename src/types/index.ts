@@ -165,6 +165,8 @@ export interface Prize {
   name: string
   /** Optional prize image URL or base64 data */
   image?: string
+  /** Optional background image URL or base64 data */
+  backgroundImage?: string
   /** Total quantity of this prize */
   quantity: number
   /** Order in which this prize will be drawn (1, 2, 3, ...) */
@@ -419,6 +421,7 @@ export interface PrizeFormData {
   id: string
   name: string
   image?: string
+  backgroundImage?: string
   quantity: number
   batchNumber: number
 }

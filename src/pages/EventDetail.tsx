@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { useEvent, usePrizes } from '@/hooks'
 import { ImportedDataTable } from '@/components/ImportedDataTable'
-import { formatDate, formatNumber } from '@/utils/helpers'
+import { formatDate, formatNumber, resolveImageUrl } from '@/utils/helpers'
 import {
   EVENT_STATUS_LABELS,
   WIN_RULE_LABELS,
@@ -330,7 +330,11 @@ export function EventDetail() {
                       className="flex items-center gap-4 p-3 rounded-lg bg-surface-alt border border-border-custom"
                     >
                       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-white">
-                        <ImageIcon className="h-5 w-5 text-content-muted" />
+                        {prize.prize_image ? (
+                          <img src={resolveImageUrl(prize.prize_image)} alt={prize.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-5 w-5 text-content-muted" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">

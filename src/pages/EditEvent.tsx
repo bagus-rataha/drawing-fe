@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PrizeImageUpload } from '@/components/wizard/PrizeImageUpload'
+import { BackgroundImageUpload } from '@/components/wizard/BackgroundImageUpload'
 import {
   ArrowLeft,
   Save,
@@ -43,9 +44,6 @@ import {
   AlertCircle,
   Info,
   CalendarIcon,
-  Upload,
-  X,
-  Image,
 } from 'lucide-react'
 import {
   useEvent,
@@ -64,6 +62,7 @@ import {
   ANIMATION_TYPE_LABELS,
   WINNER_DISPLAY_MODE_LABELS,
 } from '@/utils/constants'
+import { resolveImageUrl } from '@/utils/helpers'
 import { ImportedDataTable } from '@/components/ImportedDataTable'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -91,6 +90,7 @@ interface LocalPrize {
   id: string
   name: string
   image?: string
+  backgroundImage?: string
   quantity: number
   batchNumber: number
 }
@@ -183,7 +183,6 @@ export default function EditEvent() {
   const [animationType, setAnimationType] = useState<'sphere' | 'rolling' | 'randomize'>('randomize')
 
   // Display settings (UI-only)
-  const [backgroundImage, setBackgroundImage] = useState<string | undefined>()
   const [winnerDisplayMode, setWinnerDisplayMode] = useState<'coupon_only' | 'coupon_and_participant'>('coupon_only')
 
   // Prize state
@@ -233,7 +232,8 @@ export default function EditEvent() {
         name: p.name,
         quantity: p.quantity,
         batchNumber: p.batch_number,
-        image: undefined,
+        image: resolveImageUrl(p.prize_image),
+        backgroundImage: resolveImageUrl(p.background_image),
       }))
       setLocalPrizes(mappedPrizes)
 
@@ -247,7 +247,7 @@ export default function EditEvent() {
         draw_mode: event.draw_mode,
         animation_type: event.animation_type,
       }
-      initialPrizesRef.current = mappedPrizes.map((p, i) => ({ ...p, _seq: i })) as LocalPrize[]
+      initialPrizesRef.current = mappedPrizes.map((p) => ({ ...p })) as LocalPrize[]
 
       setInitialized(true)
     }
@@ -354,16 +354,19 @@ export default function EditEvent() {
           quantity: prizeForm.quantity,
           sequence: localPrizes.length + 1,
           batch_number: drawMode === 'batch' ? prizeForm.batchNumber : 1,
+          prize_image: prizeForm.image || undefined,
+          background_image: prizeForm.backgroundImage || undefined,
         }]
         const created = await createPrizes.mutateAsync({ eventId: id, prizes: prizeRequest })
-        // Add to local state with server ID
+        // Add to local state with server ID (use URLs from response)
         if (created.length > 0) {
           const newPrize: LocalPrize = {
             id: created[0].id,
             name: created[0].name,
             quantity: created[0].quantity,
             batchNumber: created[0].batch_number,
-            image: prizeForm.image,
+            image: resolveImageUrl(created[0].prize_image) || prizeForm.image,
+            backgroundImage: resolveImageUrl(created[0].background_image) || prizeForm.backgroundImage,
           }
           setLocalPrizes((prev) => [...prev, newPrize])
         }
@@ -391,15 +394,6 @@ export default function EditEvent() {
     }
     return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, tiap batch di-draw <strong>${prizeForm.batchNumber} kali</strong>, dengan batch terakhir sebanyak <strong>${remainder} kali</strong> draw`
   }, [drawMode, prizeForm.quantity, prizeForm.batchNumber])
-
-  // Background image handling
-  const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setBackgroundImage(ev.target?.result as string)
-    reader.readAsDataURL(file)
-  }
 
   // Save handler — only event update + bulk update prizes (reorder/edits)
   const handleSave = async () => {
@@ -433,7 +427,7 @@ export default function EditEvent() {
         await updateEvent.mutateAsync({ id, data: eventData })
       }
 
-      // Dirty check: only update prizes if changed (order, name, quantity, batch_number)
+      // Dirty check: only update prizes if changed (order, name, quantity, batch_number, images)
       const prevPrizes = initialPrizesRef.current
       const prizesDirty =
         localPrizes.length !== prevPrizes.length ||
@@ -443,18 +437,31 @@ export default function EditEvent() {
             p.id !== old.id ||
             p.name !== old.name ||
             p.quantity !== old.quantity ||
-            p.batchNumber !== old.batchNumber
+            p.batchNumber !== old.batchNumber ||
+            p.image !== old.image ||
+            p.backgroundImage !== old.backgroundImage
           )
         })
 
       if (prizesDirty && localPrizes.length > 0) {
-        const bulkData: BulkUpdatePrizeRequest[] = localPrizes.map((p, i) => ({
-          id: p.id,
-          name: p.name,
-          quantity: p.quantity,
-          sequence: i + 1,
-          batch_number: drawMode === 'batch' ? p.batchNumber : 1,
-        }))
+        const bulkData: BulkUpdatePrizeRequest[] = localPrizes.map((p, i) => {
+          const old = prevPrizes[i]
+          const entry: BulkUpdatePrizeRequest = {
+            id: p.id,
+            name: p.name,
+            quantity: p.quantity,
+            sequence: i + 1,
+            batch_number: drawMode === 'batch' ? p.batchNumber : 1,
+          }
+          // Only send image fields if changed (avoid sending URL back to API)
+          if (p.image !== old?.image) {
+            entry.prize_image = p.image || ''
+          }
+          if (p.backgroundImage !== old?.backgroundImage) {
+            entry.background_image = p.backgroundImage || ''
+          }
+          return entry
+        })
         await bulkUpdatePrizes.mutateAsync({ eventId: id, prizes: bulkData })
       }
 
@@ -663,29 +670,7 @@ export default function EditEvent() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800">
                   <Info className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">This setting will be available in a future update.</span>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Background Image (Optional)</Label>
-                  {backgroundImage ? (
-                    <div className="relative">
-                      <img src={backgroundImage} alt="Background preview" className="max-h-32 w-full rounded-lg object-cover" />
-                      <Button variant="destructive" size="icon" className="absolute right-2 top-2" onClick={() => setBackgroundImage(undefined)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6">
-                      <Image className="mb-2 h-6 w-6 text-muted-foreground" />
-                      <Input type="file" accept="image/*" onChange={handleBackgroundUpload} className="hidden" id="edit-bg-upload" />
-                      <Label htmlFor="edit-bg-upload" className="cursor-pointer">
-                        <Button variant="outline" size="sm" asChild>
-                          <span><Upload className="mr-2 h-4 w-4" />Upload</span>
-                        </Button>
-                      </Label>
-                    </div>
-                  )}
+                  <span className="text-sm">Background images are configured per-prize in the prize dialog above.</span>
                 </div>
 
                 <div className="space-y-2">
@@ -763,6 +748,18 @@ export default function EditEvent() {
                 </p>
               </div>
             )}
+
+            {/* Background Image */}
+            <div className="space-y-2">
+              <Label>Background Image</Label>
+              <BackgroundImageUpload
+                value={prizeForm.backgroundImage}
+                onChange={(value) => setPrizeForm({ ...prizeForm, backgroundImage: value })}
+              />
+              <p className="text-sm text-muted-foreground">
+                Background image for the draw screen when drawing this prize
+              </p>
+            </div>
 
             {drawPreview && (
               <div className="rounded-md bg-muted p-3 text-sm" dangerouslySetInnerHTML={{ __html: drawPreview }} />

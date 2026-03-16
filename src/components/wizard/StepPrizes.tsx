@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { generateId } from '@/utils/helpers'
 import { PrizeImageUpload } from './PrizeImageUpload'
+import { BackgroundImageUpload } from './BackgroundImageUpload'
 import { validatePrize, validatePrizes } from '@/services/validationService'
 
 // Drag and drop imports
@@ -225,6 +226,7 @@ export function StepPrizes({
       id: generateId(),
       name: '',
       image: undefined,
+      backgroundImage: undefined,
       quantity: 1,
       batchNumber: 1,
     }
@@ -450,6 +452,18 @@ export function StepPrizes({
                 </p>
               </div>
             )}
+
+            {/* Background Image */}
+            <div className="space-y-2">
+              <Label>Background Image</Label>
+              <BackgroundImageUpload
+                value={formData.backgroundImage}
+                onChange={(value) => handleFormChange('backgroundImage', value ?? '')}
+              />
+              <p className="text-sm text-muted-foreground">
+                Background image for the draw screen when drawing this prize
+              </p>
+            </div>
 
             {/* Draw Preview */}
             {drawPreview && (
