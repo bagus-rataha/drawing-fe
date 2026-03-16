@@ -3,7 +3,7 @@
  * @description Single-page edit layout for draft events
  */
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
@@ -204,6 +204,10 @@ export default function EditEvent() {
   const [initialized, setInitialized] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
+  // Initial snapshots for dirty checking
+  const initialEventRef = useRef<UpdateEventRequest | null>(null)
+  const initialPrizesRef = useRef<LocalPrize[]>([])
+
   // Responsive DatePicker
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
@@ -224,15 +228,27 @@ export default function EditEvent() {
       setDrawMode(event.draw_mode)
       setAnimationType(event.animation_type)
 
-      setLocalPrizes(
-        apiPrizes.map((p: PrizesListResponse) => ({
-          id: p.id,
-          name: p.name,
-          quantity: p.quantity,
-          batchNumber: p.batch_number,
-          image: undefined,
-        }))
-      )
+      const mappedPrizes = apiPrizes.map((p: PrizesListResponse) => ({
+        id: p.id,
+        name: p.name,
+        quantity: p.quantity,
+        batchNumber: p.batch_number,
+        image: undefined,
+      }))
+      setLocalPrizes(mappedPrizes)
+
+      // Store initial snapshots for dirty checking
+      initialEventRef.current = {
+        name: event.name,
+        description: event.description || undefined,
+        start_date: event.start_date || undefined,
+        end_date: event.end_date || undefined,
+        win_rule: event.win_rule,
+        draw_mode: event.draw_mode,
+        animation_type: event.animation_type,
+      }
+      initialPrizesRef.current = mappedPrizes.map((p, i) => ({ ...p, _seq: i })) as LocalPrize[]
+
       setInitialized(true)
     }
   }, [event, apiPrizes, initialized])
@@ -391,7 +407,6 @@ export default function EditEvent() {
     setIsSaving(true)
 
     try {
-      // 1. Update event
       const eventData: UpdateEventRequest = {
         name,
         description: description || undefined,
@@ -401,10 +416,38 @@ export default function EditEvent() {
         draw_mode: drawMode,
         animation_type: animationType,
       }
-      await updateEvent.mutateAsync({ id, data: eventData })
 
-      // 2. Bulk update prizes (reorder + field edits)
-      if (localPrizes.length > 0) {
+      // Dirty check: only update event if changed
+      const prev = initialEventRef.current
+      const eventDirty =
+        !prev ||
+        eventData.name !== prev.name ||
+        eventData.description !== prev.description ||
+        eventData.start_date !== prev.start_date ||
+        eventData.end_date !== prev.end_date ||
+        eventData.win_rule !== prev.win_rule ||
+        eventData.draw_mode !== prev.draw_mode ||
+        eventData.animation_type !== prev.animation_type
+
+      if (eventDirty) {
+        await updateEvent.mutateAsync({ id, data: eventData })
+      }
+
+      // Dirty check: only update prizes if changed (order, name, quantity, batch_number)
+      const prevPrizes = initialPrizesRef.current
+      const prizesDirty =
+        localPrizes.length !== prevPrizes.length ||
+        localPrizes.some((p, i) => {
+          const old = prevPrizes[i]
+          return (
+            p.id !== old.id ||
+            p.name !== old.name ||
+            p.quantity !== old.quantity ||
+            p.batchNumber !== old.batchNumber
+          )
+        })
+
+      if (prizesDirty && localPrizes.length > 0) {
         const bulkData: BulkUpdatePrizeRequest[] = localPrizes.map((p, i) => ({
           id: p.id,
           name: p.name,
