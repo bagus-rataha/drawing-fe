@@ -259,12 +259,12 @@ export function StepPrizes({
 
     // Batch number validation
     if (isBatchMode) {
-      if (formData.batchNumber < 2) {
-        setFormErrors(['Batch number must be at least 2'])
+      if (formData.batchNumber < 1) {
+        setFormErrors(['Batch number must be at least 1'])
         return
       }
-      if (formData.batchNumber >= formData.quantity) {
-        setFormErrors(['Batch number must be less than quantity'])
+      if (formData.batchNumber > formData.quantity) {
+        setFormErrors(['Batch number must not exceed quantity'])
         return
       }
     }
@@ -438,15 +438,15 @@ export function StepPrizes({
                 <Input
                   id="batchNumber"
                   type="number"
-                  min={2}
-                  max={Math.max(formData.quantity - 1, 2)}
+                  min={1}
+                  max={formData.quantity}
                   value={formData.batchNumber}
                   onChange={(e) =>
-                    handleFormChange('batchNumber', parseInt(e.target.value) || 2)
+                    handleFormChange('batchNumber', parseInt(e.target.value) || 1)
                   }
                 />
                 <p className="text-sm text-muted-foreground">
-                  Number of winners per batch (min 2, max {Math.max(formData.quantity - 1, 2)})
+                  Number of winners per batch (min 1, max {formData.quantity})
                 </p>
               </div>
             )}

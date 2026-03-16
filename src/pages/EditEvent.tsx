@@ -316,8 +316,8 @@ export default function EditEvent() {
     if (!prizeForm.name.trim()) errors.push('Prize name is required')
     if (prizeForm.quantity < 1) errors.push('Quantity must be at least 1')
     if (drawMode === 'batch') {
-      if (prizeForm.batchNumber < 2) errors.push('Batch number must be at least 2')
-      if (prizeForm.batchNumber >= prizeForm.quantity) errors.push('Batch number must be less than quantity')
+      if (prizeForm.batchNumber < 1) errors.push('Batch number must be at least 1')
+      if (prizeForm.batchNumber > prizeForm.quantity) errors.push('Batch number must not exceed quantity')
     }
     if (errors.length > 0) {
       setFormErrors(errors)
@@ -710,11 +710,14 @@ export default function EditEvent() {
                 <Input
                   id="editBatchNumber"
                   type="number"
-                  min={2}
-                  max={Math.max(prizeForm.quantity - 1, 2)}
+                  min={1}
+                  max={prizeForm.quantity}
                   value={prizeForm.batchNumber}
-                  onChange={(e) => setPrizeForm({ ...prizeForm, batchNumber: parseInt(e.target.value) || 2 })}
+                  onChange={(e) => setPrizeForm({ ...prizeForm, batchNumber: parseInt(e.target.value) || 1 })}
                 />
+                <p className="text-sm text-muted-foreground">
+                  Number of winners per batch (min 1, max {prizeForm.quantity})
+                </p>
               </div>
             )}
 
