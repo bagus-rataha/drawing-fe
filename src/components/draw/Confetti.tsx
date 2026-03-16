@@ -17,8 +17,13 @@ interface ConfettiProps {
 
 export function Confetti({ trigger, onComplete }: ConfettiProps) {
   const intervalRef = useRef<number | null>(null)
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
 
   const fireConfetti = useCallback(() => {
+    // Guard: don't fire if already running
+    if (intervalRef.current) return
+
     const {
       continuousDuration,
       continuousInterval,
@@ -32,18 +37,13 @@ export function Confetti({ trigger, onComplete }: ConfettiProps) {
 
     const end = Date.now() + continuousDuration
 
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-
     intervalRef.current = window.setInterval(() => {
       if (Date.now() >= end) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current)
           intervalRef.current = null
         }
-        onComplete?.()
+        onCompleteRef.current?.()
         return
       }
 
@@ -71,14 +71,14 @@ export function Confetti({ trigger, onComplete }: ConfettiProps) {
         decay,
       })
     }, continuousInterval)
-  }, [onComplete])
+  }, [])
 
   useEffect(() => {
     if (trigger) {
       fireConfetti()
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount or when trigger turns off
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
