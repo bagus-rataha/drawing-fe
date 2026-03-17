@@ -14,7 +14,13 @@ export async function getDrawingStatus(eventId: string): Promise<DrawingStatusRe
   if (!response.data.success) {
     throw new Error(response.data.message)
   }
-  return response.data.data
+  const data = response.data.data
+  // Normalize null arrays (API returns null when event is complete)
+  return {
+    ...data,
+    empty_slots: data.empty_slots || [],
+    current_batch_draw: data.current_batch_draw || [],
+  }
 }
 
 export async function getAnimationCoupons(eventId: string): Promise<AnimationCouponResponse[]> {
