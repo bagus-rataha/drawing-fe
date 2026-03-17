@@ -182,8 +182,8 @@ export default function EditEvent() {
   const [drawMode, setDrawMode] = useState<'one_by_one' | 'batch'>('one_by_one')
   const [animationType, setAnimationType] = useState<'sphere' | 'rolling' | 'randomize'>('randomize')
 
-  // Display settings (UI-only)
-  const [winnerDisplayMode, setWinnerDisplayMode] = useState<'coupon_only' | 'coupon_and_participant'>('coupon_only')
+  // Display settings
+  const [winnerDisplayMode, setWinnerDisplayMode] = useState<'coupon' | 'coupon_participant'>('coupon')
 
   // Prize state
   const [localPrizes, setLocalPrizes] = useState<LocalPrize[]>([])
@@ -226,6 +226,7 @@ export default function EditEvent() {
       setWinRuleType(event.win_rule)
       setDrawMode(event.draw_mode)
       setAnimationType(event.animation_type)
+      setWinnerDisplayMode(event.winner_display || 'coupon')
 
       const mappedPrizes = apiPrizes.map((p: PrizesListResponse) => ({
         id: p.id,
@@ -246,6 +247,7 @@ export default function EditEvent() {
         win_rule: event.win_rule,
         draw_mode: event.draw_mode,
         animation_type: event.animation_type,
+        winner_display: event.winner_display || 'coupon',
       }
       initialPrizesRef.current = mappedPrizes.map((p) => ({ ...p })) as LocalPrize[]
 
@@ -268,9 +270,10 @@ export default function EditEvent() {
       description !== (event.description || '') ||
       winRuleType !== event.win_rule ||
       drawMode !== event.draw_mode ||
-      animationType !== event.animation_type
+      animationType !== event.animation_type ||
+      winnerDisplayMode !== (event.winner_display || 'coupon')
     )
-  }, [initialized, event, name, description, winRuleType, drawMode, animationType])
+  }, [initialized, event, name, description, winRuleType, drawMode, animationType, winnerDisplayMode])
 
   useUnsavedChangesWarning(hasUnsavedChanges)
 
@@ -409,6 +412,7 @@ export default function EditEvent() {
         win_rule: winRuleType as 'onetime' | 'limited' | 'unlimited',
         draw_mode: drawMode,
         animation_type: animationType,
+        winner_display: winnerDisplayMode,
       }
 
       // Dirty check: only update event if changed
@@ -421,7 +425,8 @@ export default function EditEvent() {
         eventData.end_date !== prev.end_date ||
         eventData.win_rule !== prev.win_rule ||
         eventData.draw_mode !== prev.draw_mode ||
-        eventData.animation_type !== prev.animation_type
+        eventData.animation_type !== prev.animation_type ||
+        eventData.winner_display !== prev.winner_display
 
       if (eventDirty) {
         await updateEvent.mutateAsync({ id, data: eventData })
@@ -677,7 +682,7 @@ export default function EditEvent() {
                   <Label>Winner Display</Label>
                   <RadioGroup
                     value={winnerDisplayMode}
-                    onValueChange={(v) => setWinnerDisplayMode(v as 'coupon_only' | 'coupon_and_participant')}
+                    onValueChange={(v) => setWinnerDisplayMode(v as 'coupon' | 'coupon_participant')}
                     className="space-y-2"
                   >
                     {Object.entries(WINNER_DISPLAY_MODE_LABELS).map(([value, label]) => (

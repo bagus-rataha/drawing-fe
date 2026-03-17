@@ -46,7 +46,7 @@ export type AnimationType = '3d-sphere' | 'particle' | 'sphere' | 'rolling' | 'r
 /**
  * Winner display mode for the draw screen
  */
-export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupon-participant-name' | 'coupon_only' | 'coupon_and_participant'
+export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupon-participant-name' | 'coupon' | 'coupon_participant'
 
 /**
  * Coupon status
@@ -431,7 +431,7 @@ export interface PrizeFormData {
  */
 export interface DisplaySettingsFormData {
   backgroundImage?: string
-  winnerDisplayMode: 'coupon_only' | 'coupon_and_participant'
+  winnerDisplayMode: 'coupon' | 'coupon_participant'
 }
 
 // ============================================

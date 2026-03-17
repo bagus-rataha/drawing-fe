@@ -98,7 +98,7 @@ export const DEFAULT_WIN_RULE = {
 /** Default display settings (UI-only, not sent to API) */
 export const DEFAULT_DISPLAY_SETTINGS = {
   backgroundImage: '' as string,
-  winnerDisplayMode: 'coupon_only' as const,
+  winnerDisplayMode: 'coupon' as const,
 }
 
 /** Default event info for new events */
@@ -177,8 +177,8 @@ export const IMPORT_STATUS_LABELS: Record<string, string> = {
 
 /** Human-readable labels for winner display modes */
 export const WINNER_DISPLAY_MODE_LABELS: Record<string, string> = {
-  coupon_only: 'Coupon ID only',
-  coupon_and_participant: 'Coupon ID + Participant',
+  coupon: 'Coupon ID',
+  coupon_participant: 'Coupon ID + Participant ID',
 }
 
 // ============================================

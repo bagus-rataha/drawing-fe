@@ -34,6 +34,7 @@ export interface EventListResponse {
   win_rule: 'onetime' | 'limited' | 'unlimited'
   draw_mode: 'one_by_one' | 'batch'
   animation_type: 'sphere' | 'rolling' | 'randomize'
+  winner_display: 'coupon' | 'coupon_participant'
   total_participants: number
   total_coupons: number
   total_prizes: number
@@ -61,6 +62,7 @@ export interface CreateEventRequest {
   win_rule: 'onetime' | 'limited' | 'unlimited'
   draw_mode: 'one_by_one' | 'batch'
   animation_type: 'sphere' | 'rolling' | 'randomize'
+  winner_display: 'coupon' | 'coupon_participant'
   prizes: PrizeRequest[]
 }
 
@@ -72,6 +74,7 @@ export interface UpdateEventRequest {
   win_rule?: 'onetime' | 'limited' | 'unlimited'
   draw_mode?: 'one_by_one' | 'batch'
   animation_type?: 'sphere' | 'rolling' | 'randomize'
+  winner_display?: 'coupon' | 'coupon_participant'
 }
 
 // Prizes

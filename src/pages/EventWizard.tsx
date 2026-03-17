@@ -58,7 +58,7 @@ export function EventWizard() {
 
   // Handle create event submission
   const handleCreate = async () => {
-    const { eventInfo, prizes } = wizard
+    const { eventInfo, prizes, displaySettings } = wizard
 
     // Build prizes payload
     const prizeRequests: PrizeRequest[] = prizes.map((p, index) => ({
@@ -79,6 +79,7 @@ export function EventWizard() {
       win_rule: eventInfo.winRuleType as 'onetime' | 'limited' | 'unlimited',
       draw_mode: eventInfo.drawMode as 'one_by_one' | 'batch',
       animation_type: eventInfo.animationType as 'sphere' | 'rolling' | 'randomize',
+      winner_display: displaySettings.winnerDisplayMode,
       prizes: prizeRequests,
     }
 

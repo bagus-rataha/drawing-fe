@@ -46,7 +46,7 @@ export function StepDisplay({
 
           <RadioGroup
             value={data.winnerDisplayMode}
-            onValueChange={(value: 'coupon_only' | 'coupon_and_participant') =>
+            onValueChange={(value: 'coupon' | 'coupon_participant') =>
               onUpdate({ ...data, winnerDisplayMode: value })
             }
             className="space-y-3"
