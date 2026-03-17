@@ -131,12 +131,17 @@ function SlotBox({
               transition={{ duration: 0.08 }}
               className="text-center"
             >
-              <p className="text-sm font-bold text-[#0a2540] truncate w-full">
-                {currentCoupon?.participant_name || '---'}
-              </p>
-              <p className="text-xs text-[#64748b] truncate w-full">
+              <p className={cn(
+                'font-bold text-[#0a2540] truncate w-full',
+                displayMode === 'coupon' ? 'text-lg' : 'text-sm'
+              )}>
                 {currentCoupon?.coupon_import_identifier || '---'}
               </p>
+              {displayMode === 'coupon_participant' && (
+                <p className="text-xs text-[#64748b] truncate w-full">
+                  {currentCoupon?.participant_import_identifier || '---'}
+                </p>
+              )}
             </motion.div>
           </AnimatePresence>
         ) : showWinnerContent && winner ? (
@@ -159,14 +164,17 @@ function SlotBox({
 
             {/* Winner info */}
             <p className={cn(
-              'text-sm font-bold truncate w-full text-center',
+              'font-bold truncate w-full text-center',
+              displayMode === 'coupon' ? 'text-lg' : 'text-sm',
               isCancelled ? 'text-gray-400 line-through' : 'text-[#0a2540]'
             )}>
-              {winner.participantName || '-'}
-            </p>
-            <p className="text-xs text-[#64748b] truncate w-full text-center">
               {winner.couponIdentifier || winner.couponId || '-'}
             </p>
+            {displayMode === 'coupon_participant' && (
+              <p className="text-xs text-[#64748b] truncate w-full text-center">
+                {winner.participantImportId || winner.participantId || '-'}
+              </p>
+            )}
 
             {/* Cancel button - only for valid winners in reviewing state */}
             {isValid && isReviewing && (

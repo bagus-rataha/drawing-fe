@@ -5,10 +5,11 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import type { DrawResult, WinnerDisplayMode } from '@/types'
+import type { WinnerDisplayMode } from '@/types'
+import type { DrawResultWithId } from '@/hooks/useDrawState'
 
 interface WinnerCardProps {
-  winner: DrawResult & { id?: string }
+  winner: DrawResultWithId
   displayMode: WinnerDisplayMode
   onCancel?: () => void
   animationDelay?: number
@@ -55,25 +56,18 @@ export function WinnerCard({
           </div>
         )}
 
-        {/* Coupon ID - top */}
-        <div className="text-xs text-[#64748b] mb-1 truncate w-full">
-          {winner.couponId}
+        {/* Coupon Import Identifier */}
+        <div className={cn(
+          'font-bold text-[#0a2540] truncate w-full',
+          displayMode === 'coupon' ? 'text-lg' : 'text-xs text-[#64748b] font-normal mb-1'
+        )}>
+          {winner.couponIdentifier || winner.couponId}
         </div>
 
-        {/* Participant Name - center, large */}
-        {(displayMode === 'coupon-participant-name' ||
-          displayMode === 'coupon-participant-id') && (
+        {/* Participant Import Identifier */}
+        {displayMode === 'coupon_participant' && (
           <div className="text-lg font-bold text-[#0a2540] truncate w-full">
-            {displayMode === 'coupon-participant-name'
-              ? winner.participantName || 'Unknown'
-              : winner.participantId}
-          </div>
-        )}
-
-        {/* Participant ID - bottom (only if showing name) */}
-        {displayMode === 'coupon-participant-name' && (
-          <div className="text-sm text-[#64748b] truncate w-full">
-            {winner.participantId}
+            {winner.participantImportId || winner.participantId}
           </div>
         )}
       </div>

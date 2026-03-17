@@ -28,6 +28,7 @@ export type DrawState =
 export interface DrawResultWithId extends DrawResult {
   id: string
   couponIdentifier?: string
+  participantImportId?: string
 }
 
 /**

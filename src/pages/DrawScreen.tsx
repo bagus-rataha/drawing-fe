@@ -45,6 +45,7 @@ function mapWinnerResponseToDrawResult(w: WinnerResponse, slot: number): DrawRes
     participantName: w.coupon?.participant?.name,
     couponId: w.coupon?.id || '',
     couponIdentifier: w.coupon?.coupon_import_identifier,
+    participantImportId: w.coupon?.participant?.participant_import_identifier,
     status: w.status === 'active' ? 'valid' : 'cancelled',
     cancelReason: w.cancel_reason
       ? { type: 'manual' as const, message: w.cancel_reason }
@@ -160,8 +161,8 @@ export function DrawScreen() {
   // Animation type from event
   const animationType = event?.animation_type || 'sphere'
 
-  // Display mode
-  const displayMode: WinnerDisplayMode = 'coupon-participant-name'
+  // Display mode from event settings
+  const displayMode: WinnerDisplayMode = event?.winner_display || 'coupon'
 
   // Check if current prize is complete
   const isPrizeComplete = drawingStatus
@@ -183,7 +184,7 @@ export function DrawScreen() {
   // Map animation coupons for sphere display
   const couponsForSphere = useMemo(() => {
     return animationCoupons.map((c, i) => ({
-      id: `coupon-${i}`,
+      id: c.coupon_import_identifier || `coupon-${i}`,
       participantId: c.participant_import_identifier,
       participantName: c.participant_name,
     }))

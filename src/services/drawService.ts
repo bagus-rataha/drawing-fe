@@ -31,6 +31,7 @@ function mapWinnerToDrawResult(winner: WinnerResponse, index: number): DrawResul
     participantName: winner.coupon?.participant?.name,
     couponId: winner.coupon?.id || '',
     couponIdentifier: winner.coupon?.coupon_import_identifier,
+    participantImportId: winner.coupon?.participant?.participant_import_identifier,
     status: winner.status === 'active' ? 'valid' : 'cancelled',
     cancelReason: winner.cancel_reason
       ? { type: 'manual' as const, message: winner.cancel_reason }
