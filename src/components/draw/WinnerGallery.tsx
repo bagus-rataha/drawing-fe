@@ -5,11 +5,12 @@
  */
 
 import { WinnerCard } from './WinnerCard'
-import type { DrawResult, WinnerDisplayMode } from '@/types'
+import type { WinnerDisplayMode } from '@/types'
+import type { DrawResultWithId } from '@/hooks/useDrawState'
 
 interface WinnerGalleryProps {
   row: 'top' | 'bottom'
-  winners: (DrawResult & { id?: string })[]
+  winners: DrawResultWithId[]
   displayMode: WinnerDisplayMode
   gridX: number
   gridY: number

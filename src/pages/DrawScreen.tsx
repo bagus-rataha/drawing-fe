@@ -120,7 +120,7 @@ export function DrawScreen() {
   const [isEventComplete, setIsEventComplete] = useState(false)
 
   // Loading states to prevent double-clicks
-  const [isRedrawing, setIsRedrawing] = useState(false)
+  const [isRedrawing] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
 
   // Reveal animation state
@@ -136,7 +136,6 @@ export function DrawScreen() {
     redrawPositions,
     isSpinning,
     isIdle,
-    hasCancelled,
     validCount,
     start,
     stop,
