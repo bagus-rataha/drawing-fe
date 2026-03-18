@@ -118,6 +118,7 @@ export function DrawScreen() {
   const [selectedPrizeForModal, setSelectedPrizeForModal] = useState<Prize | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [isEventComplete, setIsEventComplete] = useState(false)
+  const [idleCardStyle, setIdleCardStyle] = useState<'placeholder' | 'blank'>('placeholder')
 
   // Loading states to prevent double-clicks
   const [isRedrawing] = useState(false)
@@ -566,6 +567,19 @@ export function DrawScreen() {
 
       {/* Main Content */}
       <div className="flex-1 relative">
+        {/* Card Style Toggle - randomize idle only */}
+        {animationType === 'randomize' && isIdle && (
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-lg px-3 py-1.5">
+            <span className="text-white/60 text-xs">Card Style</span>
+            <button
+              onClick={() => setIdleCardStyle(prev => prev === 'placeholder' ? 'blank' : 'placeholder')}
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              {idleCardStyle === 'placeholder' ? 'Placeholder' : 'Blank Card'}
+            </button>
+          </div>
+        )}
+
         {/* Animation Layer */}
         <div className="absolute inset-0 flex items-center justify-center">
           {animationType === 'randomize' ? (
@@ -579,6 +593,7 @@ export function DrawScreen() {
               displayMode={displayMode}
               onCancel={handleCancel}
               state={state}
+              idleCardStyle={idleCardStyle}
             />
           ) : (
             <Sphere3D

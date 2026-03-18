@@ -24,6 +24,7 @@ interface RandomizeAnimationProps {
   displayMode: WinnerDisplayMode
   onCancel: (winnerId: string, reason?: string) => void
   state: string
+  idleCardStyle: 'placeholder' | 'blank'
 }
 
 interface CancelPopoverState {
@@ -45,6 +46,7 @@ function SlotBox({
   displayMode,
   onCancel,
   state,
+  idleCardStyle,
 }: {
   index: number
   isSpinning: boolean
@@ -54,6 +56,7 @@ function SlotBox({
   displayMode: WinnerDisplayMode
   onCancel: (winnerId: string, reason?: string) => void
   state: string
+  idleCardStyle: 'placeholder' | 'blank'
 }) {
   const [currentCoupon, setCurrentCoupon] = useState<AnimationCouponResponse | null>(null)
   const [cancelPopover, setCancelPopover] = useState<CancelPopoverState | null>(null)
@@ -94,9 +97,11 @@ function SlotBox({
   const isCancelled = winner?.status === 'cancelled'
   const isSkipped = winner?.status === 'skipped'
 
-  // Idle state - empty placeholder
+  // Idle state
   if (!isSpinning && !showResult) {
-    return (
+    return idleCardStyle === 'blank' ? (
+      <div className="w-[220px] h-[100px] rounded-xl shadow-lg border flex items-center justify-center bg-white/95 backdrop-blur-sm border-white/50" />
+    ) : (
       <div className="w-[220px] h-[100px] rounded-xl border-2 border-dashed border-white/30 flex items-center justify-center">
         <span className="text-white/40 text-sm">Slot {index + 1}</span>
       </div>
@@ -248,6 +253,7 @@ export function RandomizeAnimation({
   displayMode,
   onCancel,
   state,
+  idleCardStyle,
 }: RandomizeAnimationProps) {
   const effectiveSlotCount = showResults ? winners.length : slotCount
 
@@ -273,6 +279,7 @@ export function RandomizeAnimation({
             displayMode={displayMode}
             onCancel={onCancel}
             state={state}
+            idleCardStyle={idleCardStyle}
           />
         ))}
       </div>
