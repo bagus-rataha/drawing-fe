@@ -100,7 +100,9 @@ function SlotBox({
   // Idle state
   if (!isSpinning && !showResult) {
     return idleCardStyle === 'blank' ? (
-      <div className="w-[220px] h-[100px] rounded-xl shadow-lg border flex items-center justify-center bg-white/95 backdrop-blur-sm border-white/50" />
+      <div className="w-[220px] h-[100px] rounded-xl shadow-lg border flex items-center justify-center bg-white/95 backdrop-blur-sm border-white/50">
+        <span className="text-gray-400 text-sm font-medium">Slot {index + 1}</span>
+      </div>
     ) : (
       <div className="w-[220px] h-[100px] rounded-xl border-2 border-dashed border-white/30 flex items-center justify-center">
         <span className="text-white/40 text-sm">Slot {index + 1}</span>
