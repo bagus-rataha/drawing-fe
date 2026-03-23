@@ -24,7 +24,6 @@ const PARTICIPANT_HEADERS = [
   'Coupons',
   'Active Coupon',
   'Wins',
-  'Status',
 ]
 
 const COUPON_HEADERS = [
@@ -105,8 +104,6 @@ export function ImportedDataTable({ eventId, allowDelete = false }: ImportedData
       'Coupons': p.coupon_count,
       'Active Coupon': p.active_coupon_count,
       'Wins': p.win_count,
-      'Status': p.status,
-      _status_raw: p.status,
       _identifier: p.participant_import_identifier,
     }))
   }, [participantQuery.data])
@@ -176,10 +173,6 @@ export function ImportedDataTable({ eventId, allowDelete = false }: ImportedData
               rowKey={allowDelete ? 'id' : undefined}
               onDelete={allowDelete ? handleDeleteParticipant : undefined}
               isDeleting={isDeleting}
-              renderCell={(header, value) => {
-                if (header === 'Status') return <StatusBadge status={String(value ?? '')} />
-                return undefined
-              }}
             />
           ) : (
             <PaginatedTable

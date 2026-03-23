@@ -5,13 +5,11 @@
  * Handles:
  * - CRUD operations for Participant entity
  * - Win count tracking
- * - Status management (active → exhausted)
  */
 
 import { db } from './db'
 import type {
   Participant,
-  ParticipantStatus,
   PaginationParams,
   PaginatedResult,
 } from '@/types'
@@ -131,7 +129,6 @@ export const participantRepository: IParticipantRepository = {
       customFields: data.customFields,
       couponCount: data.couponCount, // Pre-computed coupon count
       winCount: 0,
-      status: 'active',
     }
 
     await db.participants.add(participant)
@@ -151,7 +148,6 @@ export const participantRepository: IParticipantRepository = {
       customFields: d.customFields,
       couponCount: d.couponCount, // Pre-computed coupon count
       winCount: 0,
-      status: 'active',
     }))
 
     await db.participants.bulkAdd(participants)
@@ -234,29 +230,12 @@ export const participantRepository: IParticipantRepository = {
   },
 
   /**
-   * Update participant status
-   */
-  async updateStatus(id: string, status: ParticipantStatus): Promise<Participant> {
-    return this.update(id, { status })
-  },
-
-  /**
    * Get count of unique participants for an event
    */
   async getCount(eventId: string): Promise<number> {
     return db.participants.where('eventId').equals(eventId).count()
   },
 
-  /**
-   * Get active participants
-   */
-  async getActive(eventId: string): Promise<Participant[]> {
-    return db.participants
-      .where('eventId')
-      .equals(eventId)
-      .filter((p) => p.status === 'active')
-      .toArray()
-  },
 }
 
 export default participantRepository

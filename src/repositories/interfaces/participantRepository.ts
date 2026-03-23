@@ -8,7 +8,6 @@
 
 import type {
   Participant,
-  ParticipantStatus,
   PaginationParams,
   PaginatedResult,
 } from '@/types'
@@ -36,7 +35,6 @@ export interface UpdateParticipantData {
   customFields?: Record<string, string>
   couponCount?: number
   winCount?: number
-  status?: ParticipantStatus
 }
 
 /**
@@ -140,24 +138,10 @@ export interface IParticipantRepository {
   incrementWinCount(id: string, count?: number): Promise<Participant>
 
   /**
-   * Update participant status
-   * @param id - Participant ID
-   * @param status - New status
-   * @returns Updated participant
-   */
-  updateStatus(id: string, status: ParticipantStatus): Promise<Participant>
-
-  /**
    * Get count of unique participants for an event
    * @param eventId - Event ID
    * @returns Count of participants
    */
   getCount(eventId: string): Promise<number>
 
-  /**
-   * Get active participants (status = 'active')
-   * @param eventId - Event ID
-   * @returns Array of active participants
-   */
-  getActive(eventId: string): Promise<Participant[]>
 }

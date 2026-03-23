@@ -172,7 +172,6 @@ export interface ParticipantListResponse {
   coupon_count: number
   active_coupon_count: number
   win_count: number
-  status: string
 }
 
 // Coupon list (from GET /coupons/event/:eventId)

@@ -59,13 +59,6 @@ export type WinnerDisplayMode = 'coupon-only' | 'coupon-participant-id' | 'coupo
  */
 export type CouponStatus = 'active' | 'void'
 
-/**
- * Participant status
- * - active: Has at least one active coupon
- * - exhausted: All coupons have been voided (due to winning or other reasons)
- */
-export type ParticipantStatus = 'active' | 'exhausted'
-
 // ============================================
 // CONFIGURATION INTERFACES
 // ============================================
@@ -202,8 +195,6 @@ export interface Participant {
   couponCount: number
   /** Number of times this participant has won */
   winCount: number
-  /** Current status */
-  status: ParticipantStatus
 }
 
 /**
