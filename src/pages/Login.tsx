@@ -28,7 +28,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-navy">
-            Lottery App
+            Raffle App
           </CardTitle>
           <CardDescription>
             Masuk ke akun Anda untuk melanjutkan

@@ -53,7 +53,7 @@ function mapDrawResponse(response: (WinnerResponse | null)[]): DrawResultWithId[
         status: 'skipped' as const,
         cancelReason: {
           type: 'auto' as const,
-          message: 'Slot void - tidak ada coupon eligible',
+          message: 'Kolom void - tidak ada coupon eligible',
         },
       }
     }

@@ -473,7 +473,7 @@ export function DrawScreen() {
   const handlePrizeClick = useCallback((prizeId: string) => {
     const prize = localPrizes.find((p) => p.id === prizeId)
     if (prize) {
-      setSelectedPrizeForModal(prize)
+      // setSelectedPrizeForModal(prize) // Temporarily disabled
     }
   }, [localPrizes])
 

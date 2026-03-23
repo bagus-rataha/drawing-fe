@@ -106,7 +106,7 @@ export default function ImportParticipants() {
       } catch {
         // Keep polling on transient errors
       }
-    }, 150)
+    }, 450)
   }, [id])
 
   // Handle file selection
