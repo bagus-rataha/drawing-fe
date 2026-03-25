@@ -569,6 +569,7 @@ export function StepPrizes({
         isOpen={layoutEditorOpen}
         onClose={() => setLayoutEditorOpen(false)}
         batchNumber={formData.batchNumber}
+        backgroundImage={formData.backgroundImage}
         initialLayout={formData.cardLayout}
         onSave={handleLayoutSave}
       />

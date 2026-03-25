@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react'
+import { useEffect } from 'react'
 import { motion, useMotionValue, type PanInfo } from 'framer-motion'
 import type { CardPosition } from '@/types'
 
@@ -19,33 +19,32 @@ export function DraggableCard({
   canvasRef,
   onDragEnd,
 }: DraggableCardProps) {
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
+  // Motion values for drag offset only (not initial positioning)
+  const dragX = useMotionValue(0)
+  const dragY = useMotionValue(0)
 
-  // Sync pixel position from normalized coordinates
-  useLayoutEffect(() => {
+  // Reset drag offset when position changes (after drag end updates state)
+  useEffect(() => {
+    dragX.set(0)
+    dragY.set(0)
+  }, [position.x, position.y, dragX, dragY])
+
+  const handleDragEnd = () => {
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const cardW = cardWidth * rect.width
-    const cardH = cardHeight * rect.height
-    x.set(position.x * rect.width - cardW / 2)
-    y.set(position.y * rect.height - cardH / 2)
-  }, [position.x, position.y, cardWidth, cardHeight, canvasRef, x, y])
 
-  const handleDragEnd = (_: unknown, _info: PanInfo) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const cardW = cardWidth * rect.width
-    const cardH = cardHeight * rect.height
-    // Read current pixel position of card center from motion values
-    const centerX = x.get() + cardW / 2
-    const centerY = y.get() + cardH / 2
-    const nx = centerX / rect.width
-    const ny = centerY / rect.height
+    // New center = old center + drag offset (in normalized coords)
+    const nx = position.x + dragX.get() / rect.width
+    const ny = position.y + dragY.get() / rect.height
+
     onDragEnd(index, nx, ny)
   }
+
+  // Position card top-left via CSS percentages (always correct, no canvas measurement needed)
+  // left % is relative to parent width, top % is relative to parent height
+  const leftPct = (position.x - cardWidth / 2) * 100
+  const topPct = (position.y - cardHeight / 2) * 100
 
   return (
     <motion.div
@@ -61,10 +60,10 @@ export function DraggableCard({
         text-white font-bold text-lg
         hover:border-white hover:bg-white/30"
       style={{
-        left: 0,
-        top: 0,
-        x,
-        y,
+        left: `${leftPct}%`,
+        top: `${topPct}%`,
+        x: dragX,
+        y: dragY,
         width: `${cardWidth * 100}%`,
         height: `${cardHeight * 100}%`,
         zIndex: 10,

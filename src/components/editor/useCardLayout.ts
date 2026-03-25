@@ -56,6 +56,14 @@ export function useCardLayout(batchNumber: number, initialLayout?: CardLayout) {
 
   const [isModified, setIsModified] = useState(false)
 
+  // Sync when initialLayout changes (e.g., after save + re-open editor)
+  useEffect(() => {
+    if (initialLayout?.positions?.length) {
+      setLayout(initialLayout)
+      setIsModified(false)
+    }
+  }, [initialLayout])
+
   // Reconcile when batchNumber changes
   useEffect(() => {
     setLayout((prev) => {

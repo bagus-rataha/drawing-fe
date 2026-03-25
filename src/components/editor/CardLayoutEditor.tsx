@@ -9,6 +9,7 @@ interface CardLayoutEditorProps {
   isOpen: boolean
   onClose: () => void
   batchNumber: number
+  backgroundImage?: string
   initialLayout?: CardLayout
   onSave: (layout: CardLayout) => void
 }
@@ -17,6 +18,7 @@ export function CardLayoutEditor({
   isOpen,
   onClose,
   batchNumber,
+  backgroundImage,
   initialLayout,
   onSave,
 }: CardLayoutEditorProps) {
@@ -68,6 +70,7 @@ export function CardLayoutEditor({
         <div className="w-full max-w-[90vw] max-h-[80vh]" style={{ aspectRatio: layout.aspectRatio }}>
           <EditorCanvas
             layout={layout}
+            backgroundImage={backgroundImage}
             onUpdatePosition={updatePosition}
           />
         </div>

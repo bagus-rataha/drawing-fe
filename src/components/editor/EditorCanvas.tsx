@@ -4,11 +4,13 @@ import { DraggableCard } from './DraggableCard'
 
 interface EditorCanvasProps {
   layout: CardLayout
+  backgroundImage?: string
   onUpdatePosition: (index: number, x: number, y: number) => void
 }
 
 export function EditorCanvas({
   layout,
+  backgroundImage,
   onUpdatePosition,
 }: EditorCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null!)
@@ -16,9 +18,21 @@ export function EditorCanvas({
   return (
     <div
       ref={canvasRef}
-      className="relative w-full h-full overflow-hidden rounded-lg bg-gradient-to-br from-gray-800 to-gray-900"
+      className="relative w-full h-full overflow-hidden rounded-lg"
       style={{ aspectRatio: layout.aspectRatio }}
     >
+      {/* Background */}
+      {backgroundImage ? (
+        <img
+          src={backgroundImage}
+          alt="Prize background"
+          className="absolute inset-0 w-full h-full object-cover"
+          draggable={false}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900" />
+      )}
+
       {/* Dark overlay for contrast */}
       <div className="absolute inset-0 bg-black/30" />
 

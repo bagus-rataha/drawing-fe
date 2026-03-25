@@ -864,6 +864,7 @@ export default function EditEvent() {
         isOpen={layoutEditorOpen}
         onClose={() => setLayoutEditorOpen(false)}
         batchNumber={prizeForm.batchNumber}
+        backgroundImage={prizeForm.backgroundImage}
         initialLayout={prizeForm.cardLayout}
         onSave={(layout) => setPrizeForm({ ...prizeForm, cardLayout: layout })}
       />
