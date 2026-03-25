@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import type { PrizeFormData } from '@/types'
+import type { PrizeFormData, CardLayout } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,6 +31,9 @@ import {
 import { generateId } from '@/utils/helpers'
 import { PrizeImageUpload } from './PrizeImageUpload'
 import { BackgroundImageUpload } from './BackgroundImageUpload'
+import { CardLayoutEditor } from '@/components/editor/CardLayoutEditor'
+import { generateAutoGrid } from '@/components/editor/useCardLayout'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { validatePrize, validatePrizes } from '@/services/validationService'
 
 // Drag and drop imports
@@ -197,6 +200,7 @@ export function StepPrizes({
   const [formData, setFormData] = useState<PrizeFormData>(createEmptyPrize())
   const [errors, setErrors] = useState<string[]>([])
   const [formErrors, setFormErrors] = useState<string[]>([])
+  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
 
   const isBatchMode = drawMode === 'batch'
 
@@ -284,6 +288,29 @@ export function StepPrizes({
   const handleFormChange = (field: keyof PrizeFormData, value: string | number) => {
     setFormData({ ...formData, [field]: value })
     setFormErrors([])
+  }
+
+  const handleLayoutModeChange = (mode: string) => {
+    if (mode === 'grid') {
+      setFormData({ ...formData, cardLayout: undefined })
+    } else {
+      if (!formData.cardLayout) {
+        const count = formData.batchNumber
+        setFormData({
+          ...formData,
+          cardLayout: {
+            aspectRatio: 16 / 9,
+            cardWidth: 0.12,
+            cardHeight: 0.12 * (16 / 9) / 2.2,
+            positions: generateAutoGrid(count),
+          },
+        })
+      }
+    }
+  }
+
+  const handleLayoutSave = (layout: CardLayout) => {
+    setFormData({ ...formData, cardLayout: layout })
   }
 
   // Draw preview
@@ -382,8 +409,10 @@ export function StepPrizes({
       </div>
 
       {/* Prize Form Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} modal={!layoutEditorOpen}>
+        <DialogContent
+          onInteractOutside={(e) => { if (layoutEditorOpen) e.preventDefault() }}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingPrize ? 'Edit Prize' : 'Add Prize'}
@@ -465,6 +494,39 @@ export function StepPrizes({
               </p>
             </div>
 
+            {/* Card Layout Mode */}
+            <div className="space-y-2">
+              <Label>Card Layout</Label>
+              <RadioGroup
+                value={formData.cardLayout ? 'custom' : 'grid'}
+                onValueChange={handleLayoutModeChange}
+                className="flex gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="grid" id="layout-grid" />
+                  <Label htmlFor="layout-grid" className="font-normal cursor-pointer">
+                    Default Grid
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="custom" id="layout-custom" />
+                  <Label htmlFor="layout-custom" className="font-normal cursor-pointer">
+                    Custom Layout
+                  </Label>
+                </div>
+              </RadioGroup>
+              {formData.cardLayout && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLayoutEditorOpen(true)}
+                >
+                  Edit Layout
+                </Button>
+              )}
+            </div>
+
             {/* Draw Preview */}
             {drawPreview && (
               <div
@@ -498,8 +560,18 @@ export function StepPrizes({
               {editingPrize ? 'Save Changes' : 'Add Prize'}
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
+
+      {/* Card Layout Editor — portaled to body, modal=false on Dialog prevents inert */}
+      <CardLayoutEditor
+        isOpen={layoutEditorOpen}
+        onClose={() => setLayoutEditorOpen(false)}
+        batchNumber={formData.batchNumber}
+        initialLayout={formData.cardLayout}
+        onSave={handleLayoutSave}
+      />
     </div>
   )
 }

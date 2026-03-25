@@ -415,6 +415,19 @@ export interface PrizeFormData {
   backgroundImage?: string
   quantity: number
   batchNumber: number
+  cardLayout?: CardLayout
+}
+
+export interface CardPosition {
+  x: number
+  y: number
+}
+
+export interface CardLayout {
+  aspectRatio: number
+  cardWidth: number
+  cardHeight: number
+  positions: CardPosition[]
 }
 
 /**

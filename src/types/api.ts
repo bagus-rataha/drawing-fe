@@ -1,3 +1,5 @@
+import type { CardLayout } from './index'
+
 // API Response envelope
 export interface ApiResponse<T> {
   success: boolean
@@ -88,6 +90,7 @@ export interface PrizeRequest {
   batch_number: number
   prize_image?: string
   background_image?: string
+  card_layout?: CardLayout | Record<string, never>
 }
 
 export interface BulkUpdatePrizeRequest {
@@ -98,6 +101,7 @@ export interface BulkUpdatePrizeRequest {
   batch_number?: number
   prize_image?: string
   background_image?: string
+  card_layout?: CardLayout | Record<string, never>
 }
 
 export interface PrizeResponse {
@@ -110,6 +114,7 @@ export interface PrizeResponse {
   current_batch: number
   prize_image: string
   background_image: string
+  card_layout: CardLayout | null
   created_at: string
   updated_at: string
   winners: WinnerResponse[]

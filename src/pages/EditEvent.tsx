@@ -32,6 +32,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PrizeImageUpload } from '@/components/wizard/PrizeImageUpload'
 import { BackgroundImageUpload } from '@/components/wizard/BackgroundImageUpload'
+import { CardLayoutEditor } from '@/components/editor/CardLayoutEditor'
+import { generateAutoGrid } from '@/components/editor/useCardLayout'
 import {
   ArrowLeft,
   Save,
@@ -54,7 +56,7 @@ import {
   useDeletePrize,
   useUnsavedChangesWarning,
 } from '@/hooks'
-import type { WinRuleType } from '@/types'
+import type { WinRuleType, CardLayout } from '@/types'
 import type { UpdateEventRequest, PrizeRequest, BulkUpdatePrizeRequest, PrizesListResponse } from '@/types/api'
 import {
   WIN_RULE_LABELS,
@@ -93,6 +95,7 @@ interface LocalPrize {
   backgroundImage?: string
   quantity: number
   batchNumber: number
+  cardLayout?: CardLayout
 }
 
 function SortablePrizeItem({
@@ -195,6 +198,9 @@ export default function EditEvent() {
   const [formErrors, setFormErrors] = useState<string[]>([])
   const [isCreatingPrize, setIsCreatingPrize] = useState(false)
 
+  // Layout editor
+  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
+
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<LocalPrize | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -236,6 +242,7 @@ export default function EditEvent() {
         batchNumber: p.batch_number,
         image: resolveImageUrl(p.prize_image),
         backgroundImage: resolveImageUrl(p.background_image),
+        cardLayout: p.card_layout?.positions?.length ? p.card_layout : undefined,
       }))
       setLocalPrizes(mappedPrizes)
 
@@ -362,6 +369,7 @@ export default function EditEvent() {
           batch_number: drawMode === 'batch' ? prizeForm.batchNumber : 1,
           prize_image: prizeForm.image || undefined,
           background_image: prizeForm.backgroundImage || undefined,
+          card_layout: prizeForm.cardLayout ?? {},
         }]
         const created = await createPrizes.mutateAsync({ eventId: id, prizes: prizeRequest })
         // Add to local state with server ID (use URLs from response)
@@ -373,6 +381,7 @@ export default function EditEvent() {
             batchNumber: created[0].batch_number,
             image: resolveImageUrl(created[0].prize_image) || prizeForm.image,
             backgroundImage: resolveImageUrl(created[0].background_image) || prizeForm.backgroundImage,
+            cardLayout: created[0].card_layout?.positions?.length ? created[0].card_layout : undefined,
           }
           setLocalPrizes((prev) => [...prev, newPrize])
         }
@@ -449,7 +458,8 @@ export default function EditEvent() {
             p.quantity !== old.quantity ||
             p.batchNumber !== old.batchNumber ||
             p.image !== old.image ||
-            p.backgroundImage !== old.backgroundImage
+            p.backgroundImage !== old.backgroundImage ||
+            JSON.stringify(p.cardLayout) !== JSON.stringify(old.cardLayout)
           )
         })
 
@@ -462,6 +472,7 @@ export default function EditEvent() {
             quantity: p.quantity,
             sequence: i + 1,
             batch_number: drawMode === 'batch' ? p.batchNumber : 1,
+            card_layout: p.cardLayout ?? {},
           }
           // Only send image fields if changed (avoid sending URL back to API)
           if (p.image !== old?.image) {
@@ -716,8 +727,10 @@ export default function EditEvent() {
       </main>
 
       {/* Prize Form Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} modal={!layoutEditorOpen}>
+        <DialogContent
+          onInteractOutside={(e) => { if (layoutEditorOpen) e.preventDefault() }}
+        >
           <DialogHeader>
             <DialogTitle>{editingPrize ? 'Edit Prize' : 'Add Prize'}</DialogTitle>
           </DialogHeader>
@@ -771,6 +784,56 @@ export default function EditEvent() {
               </p>
             </div>
 
+            {/* Card Layout Mode */}
+            <div className="space-y-2">
+              <Label>Card Layout</Label>
+              <RadioGroup
+                value={prizeForm.cardLayout ? 'custom' : 'grid'}
+                onValueChange={(mode) => {
+                  if (mode === 'grid') {
+                    setPrizeForm({ ...prizeForm, cardLayout: undefined })
+                  } else {
+                    if (!prizeForm.cardLayout) {
+                      const count = prizeForm.batchNumber
+                      setPrizeForm({
+                        ...prizeForm,
+                        cardLayout: {
+                          aspectRatio: 16 / 9,
+                          cardWidth: 0.12,
+                          cardHeight: 0.12 * (16 / 9) / 2.2,
+                          positions: generateAutoGrid(count),
+                        },
+                      })
+                    }
+                  }
+                }}
+                className="flex gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="grid" id="edit-layout-grid" />
+                  <Label htmlFor="edit-layout-grid" className="font-normal cursor-pointer">
+                    Default Grid
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="custom" id="edit-layout-custom" />
+                  <Label htmlFor="edit-layout-custom" className="font-normal cursor-pointer">
+                    Custom Layout
+                  </Label>
+                </div>
+              </RadioGroup>
+              {prizeForm.cardLayout && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLayoutEditorOpen(true)}
+                >
+                  Edit Layout
+                </Button>
+              )}
+            </div>
+
             {drawPreview && (
               <div className="rounded-md bg-muted p-3 text-sm" dangerouslySetInnerHTML={{ __html: drawPreview }} />
             )}
@@ -792,8 +855,18 @@ export default function EditEvent() {
               {isCreatingPrize ? 'Menyimpan...' : editingPrize ? 'Save Changes' : 'Add Prize'}
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
+
+      {/* Card Layout Editor — portaled to body, modal=false on Dialog prevents inert */}
+      <CardLayoutEditor
+        isOpen={layoutEditorOpen}
+        onClose={() => setLayoutEditorOpen(false)}
+        batchNumber={prizeForm.batchNumber}
+        initialLayout={prizeForm.cardLayout}
+        onSave={(layout) => setPrizeForm({ ...prizeForm, cardLayout: layout })}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

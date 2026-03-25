@@ -14,7 +14,7 @@ import { getEvent } from '@/services/api/eventApi'
 import { getPrizesByEvent } from '@/services/api/prizeApi'
 import { getDrawingStatus, getAnimationCoupons } from '@/services/api/drawingApi'
 import type { EventResponse, PrizesListResponse, DrawingStatusResponse, AnimationCouponResponse, WinnerResponse } from '@/types/api'
-import type { Prize, WinnerDisplayMode } from '@/types'
+import type { Prize, WinnerDisplayMode, CardLayout } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
 import type { DrawResultWithId } from '@/hooks/useDrawState'
 import { winnerKeys } from '@/hooks/useWinners'
@@ -22,6 +22,7 @@ import { PrizePanel } from '@/components/draw/PrizePanel'
 import { Sphere3D } from '@/components/draw/Sphere3D'
 import { RandomizeAnimation } from '@/components/draw/RandomizeAnimation'
 import { WinnerGallery } from '@/components/draw/WinnerGallery'
+import { AbsoluteWinnerOverlay } from '@/components/draw/AbsoluteWinnerOverlay'
 import { DrawControls } from '@/components/draw/DrawControls'
 import { PrizeWinnersModal } from '@/components/draw/PrizeWinnersModal'
 import { Confetti, fireConfettiBurst } from '@/components/draw/Confetti'
@@ -177,8 +178,17 @@ export function DrawScreen() {
   const currentApiPrize = prizes[currentPrizeIndex] || null
   const backgroundImage = resolveImageUrl(currentApiPrize?.background_image)
 
+  // Parse card_layout from current prize (native object from API)
+  const cardLayout: CardLayout | undefined = useMemo(() => {
+    const cl = currentApiPrize?.card_layout
+    if (cl && 'positions' in cl && Array.isArray(cl.positions) && cl.positions.length > 0) {
+      return cl as CardLayout
+    }
+    return undefined
+  }, [currentApiPrize?.card_layout])
+
   // Calculate pagination
-  const cardsPerPage = gridX * gridY
+  const cardsPerPage = cardLayout ? winners.length || 1 : gridX * gridY
   const totalPages = Math.max(1, Math.ceil(winners.length / cardsPerPage))
 
   // Map animation coupons for sphere display
@@ -594,6 +604,7 @@ export function DrawScreen() {
               onCancel={handleCancel}
               state={state}
               idleCardStyle={idleCardStyle}
+              cardLayout={cardLayout}
             />
           ) : (
             <Sphere3D
@@ -607,30 +618,41 @@ export function DrawScreen() {
 
         {/* Winner Cards Layer - only for sphere mode */}
         {showWinners && animationType !== 'randomize' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 pointer-events-none">
-            <WinnerGallery
-              row="top"
+          cardLayout ? (
+            <AbsoluteWinnerOverlay
+              layout={cardLayout}
               winners={winners}
               displayMode={displayMode}
-              gridX={gridX}
-              gridY={gridY}
-              currentPage={currentPage}
               onCancel={handleCancel}
               revealedCount={effectiveRevealedCount}
               redrawPositions={redrawPositions}
             />
-            <WinnerGallery
-              row="bottom"
-              winners={winners}
-              displayMode={displayMode}
-              gridX={gridX}
-              gridY={gridY}
-              currentPage={currentPage}
-              onCancel={handleCancel}
-              revealedCount={effectiveRevealedCount}
-              redrawPositions={redrawPositions}
-            />
-          </div>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 pointer-events-none">
+              <WinnerGallery
+                row="top"
+                winners={winners}
+                displayMode={displayMode}
+                gridX={gridX}
+                gridY={gridY}
+                currentPage={currentPage}
+                onCancel={handleCancel}
+                revealedCount={effectiveRevealedCount}
+                redrawPositions={redrawPositions}
+              />
+              <WinnerGallery
+                row="bottom"
+                winners={winners}
+                displayMode={displayMode}
+                gridX={gridX}
+                gridY={gridY}
+                currentPage={currentPage}
+                onCancel={handleCancel}
+                revealedCount={effectiveRevealedCount}
+                redrawPositions={redrawPositions}
+              />
+            </div>
+          )
         )}
       </div>
 
