@@ -92,7 +92,7 @@ export const WIZARD_STEP_LABELS = [
 /** Default win rule configuration */
 export const DEFAULT_WIN_RULE = {
   type: 'onetime' as const,
-  maxWins: 1,
+  maxWins: 2,
 }
 
 /** Default display settings (UI-only, not sent to API) */
@@ -108,7 +108,7 @@ export const DEFAULT_EVENT_INFO = {
   startDate: null as Date | null,
   endDate: null as Date | null,
   winRuleType: 'onetime' as const,
-  maxWins: 1,
+  maxWins: 2,
   drawMode: 'one_by_one' as const,
   animationType: 'randomize' as const,
 }

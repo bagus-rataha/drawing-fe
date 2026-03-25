@@ -220,7 +220,10 @@ export function EventDetail() {
               {/* Win Rule */}
               <div>
                 <span className="text-sm text-content-muted">Win Rule: </span>
-                <span className="text-sm font-medium text-navy">{winRuleLabel}</span>
+                <span className="text-sm font-medium text-navy">
+                  {winRuleLabel}
+                  {event.win_rule === 'limited' && event.max_win_count > 0 && ` (max ${event.max_win_count})`}
+                </span>
               </div>
 
               {/* Draw Mode */}

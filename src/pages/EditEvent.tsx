@@ -224,6 +224,7 @@ export default function EditEvent() {
       setStartDate(event.start_date ? new Date(event.start_date) : null)
       setEndDate(event.end_date ? new Date(event.end_date) : null)
       setWinRuleType(event.win_rule)
+      setMaxWins(event.max_win_count || 2)
       setDrawMode(event.draw_mode)
       setAnimationType(event.animation_type)
       setWinnerDisplayMode(event.winner_display || 'coupon')
@@ -245,6 +246,7 @@ export default function EditEvent() {
         start_date: event.start_date || undefined,
         end_date: event.end_date || undefined,
         win_rule: event.win_rule,
+        max_win_count: event.max_win_count || 0,
         draw_mode: event.draw_mode,
         animation_type: event.animation_type,
         winner_display: event.winner_display || 'coupon',
@@ -269,11 +271,12 @@ export default function EditEvent() {
       name !== event.name ||
       description !== (event.description || '') ||
       winRuleType !== event.win_rule ||
+      maxWins !== (event.max_win_count || 2) ||
       drawMode !== event.draw_mode ||
       animationType !== event.animation_type ||
       winnerDisplayMode !== (event.winner_display || 'coupon')
     )
-  }, [initialized, event, name, description, winRuleType, drawMode, animationType, winnerDisplayMode])
+  }, [initialized, event, name, description, winRuleType, maxWins, drawMode, animationType, winnerDisplayMode])
 
   useUnsavedChangesWarning(hasUnsavedChanges)
 
@@ -410,6 +413,7 @@ export default function EditEvent() {
         start_date: startDate?.toISOString(),
         end_date: endDate?.toISOString(),
         win_rule: winRuleType as 'onetime' | 'limited' | 'unlimited',
+        max_win_count: winRuleType === 'limited' ? maxWins : 0,
         draw_mode: drawMode,
         animation_type: animationType,
         winner_display: winnerDisplayMode,
@@ -424,6 +428,7 @@ export default function EditEvent() {
         eventData.start_date !== prev.start_date ||
         eventData.end_date !== prev.end_date ||
         eventData.win_rule !== prev.win_rule ||
+        eventData.max_win_count !== prev.max_win_count ||
         eventData.draw_mode !== prev.draw_mode ||
         eventData.animation_type !== prev.animation_type ||
         eventData.winner_display !== prev.winner_display
@@ -586,7 +591,7 @@ export default function EditEvent() {
                 {winRuleType === 'limited' && (
                   <div className="space-y-2">
                     <Label htmlFor="maxWins">Maximum Wins <span className="text-destructive">*</span></Label>
-                    <Input id="maxWins" type="number" min={1} max={100} value={maxWins} onChange={(e) => setMaxWins(parseInt(e.target.value) || 1)} />
+                    <Input id="maxWins" type="number" min={2} max={100} value={maxWins} onChange={(e) => setMaxWins(parseInt(e.target.value) || 2)} />
                   </div>
                 )}
 

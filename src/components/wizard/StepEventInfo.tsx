@@ -187,11 +187,11 @@ export function StepEventInfo({ data, prizes, onUpdate, onPrizesUpdate, onNext }
             <Input
               id="maxWins"
               type="number"
-              min={1}
+              min={2}
               max={100}
               value={data.maxWins}
               onChange={(e) =>
-                handleChange('maxWins', parseInt(e.target.value) || 1)
+                handleChange('maxWins', parseInt(e.target.value) || 2)
               }
             />
             <p className="text-sm text-muted-foreground">

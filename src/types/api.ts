@@ -32,6 +32,7 @@ export interface EventListResponse {
   description: string
   status: string
   win_rule: 'onetime' | 'limited' | 'unlimited'
+  max_win_count: number
   draw_mode: 'one_by_one' | 'batch'
   animation_type: 'sphere' | 'rolling' | 'randomize'
   winner_display: 'coupon' | 'coupon_participant'
@@ -60,6 +61,7 @@ export interface CreateEventRequest {
   start_date?: string
   end_date?: string
   win_rule: 'onetime' | 'limited' | 'unlimited'
+  max_win_count: number
   draw_mode: 'one_by_one' | 'batch'
   animation_type: 'sphere' | 'rolling' | 'randomize'
   winner_display: 'coupon' | 'coupon_participant'
@@ -72,6 +74,7 @@ export interface UpdateEventRequest {
   start_date?: string
   end_date?: string
   win_rule?: 'onetime' | 'limited' | 'unlimited'
+  max_win_count?: number
   draw_mode?: 'one_by_one' | 'batch'
   animation_type?: 'sphere' | 'rolling' | 'randomize'
   winner_display?: 'coupon' | 'coupon_participant'

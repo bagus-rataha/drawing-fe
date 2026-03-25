@@ -63,8 +63,8 @@ export function validateEventInfo(data: EventInfoFormData): ValidationResult {
 
   // Win rule validation
   if (data.winRuleType === 'limited') {
-    if (!data.maxWins || data.maxWins < 1) {
-      errors.push('Maximum wins must be at least 1 for limited win rule')
+    if (!data.maxWins || data.maxWins < 2) {
+      errors.push('Maximum wins must be at least 2 for limited win rule')
     } else if (data.maxWins > MAX_LIMITED_WINS) {
       errors.push(`Maximum wins cannot exceed ${MAX_LIMITED_WINS}`)
     }
