@@ -24,10 +24,7 @@ export function AbsoluteWinnerOverlay({
 
   return (
     <div className="absolute inset-0 pointer-events-auto">
-      <div
-        className="relative w-full h-full mx-auto"
-        style={{ aspectRatio: layout.aspectRatio }}
-      >
+      <div className="relative w-full h-full">
         {layout.positions.map((pos, index) => {
           const winner = winners[index]
           const shouldShow = index < revealedCount

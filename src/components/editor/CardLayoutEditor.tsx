@@ -64,20 +64,16 @@ export function CardLayoutEditor({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/90">
-      {/* Canvas area — centered, max size */}
-      <div className="flex-1 flex items-center justify-center w-full p-8">
-        <div className="w-full max-w-[90vw] max-h-[80vh]" style={{ aspectRatio: layout.aspectRatio }}>
-          <EditorCanvas
-            layout={layout}
-            backgroundImage={backgroundImage}
-            onUpdatePosition={updatePosition}
-          />
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[100]">
+      {/* Canvas — true full screen */}
+      <EditorCanvas
+        layout={layout}
+        backgroundImage={backgroundImage}
+        onUpdatePosition={updatePosition}
+      />
 
-      {/* Floating Toolbar */}
-      <div className="flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-xl px-6 py-3 mb-8 border border-white/20">
+      {/* Floating Toolbar — overlaid at bottom center */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/10 backdrop-blur-md rounded-xl px-6 py-3 border border-white/20 z-20">
         <div className="flex items-center gap-3 text-white text-sm">
           <span className="whitespace-nowrap">Card Size:</span>
           <input

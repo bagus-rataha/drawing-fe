@@ -18,8 +18,7 @@ export function EditorCanvas({
   return (
     <div
       ref={canvasRef}
-      className="relative w-full h-full overflow-hidden rounded-lg"
-      style={{ aspectRatio: layout.aspectRatio }}
+      className="relative w-full h-full overflow-hidden"
     >
       {/* Background */}
       {backgroundImage ? (
