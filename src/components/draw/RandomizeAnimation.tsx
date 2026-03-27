@@ -12,7 +12,7 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AnimationCouponResponse } from '@/types/api'
 import type { DrawResultWithId } from '@/hooks/useDrawState'
-import type { WinnerDisplayMode } from '@/types'
+import type { WinnerDisplayMode, CardLayout } from '@/types'
 
 interface RandomizeAnimationProps {
   isSpinning: boolean
@@ -25,6 +25,7 @@ interface RandomizeAnimationProps {
   onCancel: (winnerId: string, reason?: string) => void
   state: string
   idleCardStyle: 'placeholder' | 'blank'
+  cardLayout?: CardLayout
 }
 
 interface CancelPopoverState {
@@ -256,6 +257,7 @@ export function RandomizeAnimation({
   onCancel,
   state,
   idleCardStyle,
+  cardLayout,
 }: RandomizeAnimationProps) {
   const effectiveSlotCount = showResults ? winners.length : slotCount
 
@@ -267,6 +269,42 @@ export function RandomizeAnimation({
     )
   }
 
+  // Custom layout: absolute positioning
+  if (cardLayout?.positions?.length) {
+    return (
+      <div className="relative w-full h-full">
+        {Array.from({ length: effectiveSlotCount }).map((_, index) => {
+          const pos = cardLayout.positions[index]
+          if (!pos) return null
+          return (
+            <div
+              key={`slot-${index}`}
+              className="absolute"
+              style={{
+                left: `${pos.x * 100}%`,
+                top: `${pos.y * 100}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <SlotBox
+                index={index}
+                isSpinning={isSpinning}
+                showResult={showResults}
+                winner={winners[index]}
+                coupons={coupons}
+                displayMode={displayMode}
+                onCancel={onCancel}
+                state={state}
+                idleCardStyle={idleCardStyle}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Default: flex-wrap layout
   return (
     <div className="flex items-center justify-center h-full px-8">
       <div className="flex flex-wrap justify-center gap-4 max-w-[1200px]">

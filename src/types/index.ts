@@ -402,7 +402,6 @@ export interface EventInfoFormData {
   winRuleType: WinRuleType
   maxWins: number
   drawMode: 'one_by_one' | 'batch'
-  animationType: 'sphere' | 'rolling' | 'randomize'
 }
 
 /**
@@ -415,6 +414,19 @@ export interface PrizeFormData {
   backgroundImage?: string
   quantity: number
   batchNumber: number
+  cardLayout?: CardLayout
+}
+
+export interface CardPosition {
+  x: number
+  y: number
+}
+
+export interface CardLayout {
+  aspectRatio: number
+  cardWidth: number
+  cardHeight: number
+  positions: CardPosition[]
 }
 
 /**
@@ -422,7 +434,10 @@ export interface PrizeFormData {
  */
 export interface DisplaySettingsFormData {
   backgroundImage?: string
+  animationType: 'sphere' | 'rolling' | 'randomize'
   winnerDisplayMode: 'coupon' | 'coupon_participant'
+  rollingSound: string
+  revealSound: string
 }
 
 // ============================================

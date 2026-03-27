@@ -19,6 +19,8 @@ import {
   DRAW_MODE_LABELS,
   ANIMATION_TYPE_LABELS,
   WINNER_DISPLAY_MODE_LABELS,
+  ROLLING_SOUND_OPTIONS,
+  REVEAL_SOUND_OPTIONS,
 } from '@/utils/constants'
 import { format } from 'date-fns'
 
@@ -71,10 +73,6 @@ export function StepReview({
             <div>
               <p className="text-sm text-muted-foreground">Draw Mode</p>
               <p className="font-medium">{DRAW_MODE_LABELS[eventInfo.drawMode]}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Animation Type</p>
-              <p className="font-medium">{ANIMATION_TYPE_LABELS[eventInfo.animationType]}</p>
             </div>
             {(eventInfo.startDate || eventInfo.endDate) && (
               <div className="col-span-2">
@@ -134,6 +132,10 @@ export function StepReview({
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <p className="text-sm text-muted-foreground">Animation Type</p>
+              <p className="font-medium">{ANIMATION_TYPE_LABELS[displaySettings.animationType]}</p>
+            </div>
+            <div>
               <p className="text-sm text-muted-foreground">Winner Display</p>
               <p className="font-medium">
                 {WINNER_DISPLAY_MODE_LABELS[displaySettings.winnerDisplayMode]}
@@ -147,6 +149,14 @@ export function StepReview({
                 <p className="font-medium">Custom image uploaded</p>
               </div>
             )}
+            <div>
+              <p className="text-sm text-muted-foreground">Rolling Sound</p>
+              <p className="font-medium">{ROLLING_SOUND_OPTIONS[displaySettings.rollingSound]?.label || 'No Sound'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Reveal Sound</p>
+              <p className="font-medium">{REVEAL_SOUND_OPTIONS[displaySettings.revealSound]?.label || 'No Sound'}</p>
+            </div>
           </div>
         </CardContent>
       </Card>

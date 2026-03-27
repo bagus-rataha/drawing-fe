@@ -268,7 +268,6 @@ export async function importExcel(
         customFields: customFieldsData,
         couponCount: 0, // Will be set after all rows are processed
         winCount: 0,
-        status: 'active',
       })
     }
 
@@ -683,8 +682,7 @@ export async function importExcelWithProgress(
           customFields: customFieldsData,
           couponCount: 0, // Will be set after all rows are processed
           winCount: 0,
-          status: 'active',
-        })
+          })
       }
 
       // Create coupon

@@ -98,7 +98,10 @@ export const DEFAULT_WIN_RULE = {
 /** Default display settings (UI-only, not sent to API) */
 export const DEFAULT_DISPLAY_SETTINGS = {
   backgroundImage: '' as string,
+  animationType: 'randomize' as const,
   winnerDisplayMode: 'coupon' as const,
+  rollingSound: '' as string,
+  revealSound: '' as string,
 }
 
 /** Default event info for new events */
@@ -110,7 +113,6 @@ export const DEFAULT_EVENT_INFO = {
   winRuleType: 'onetime' as const,
   maxWins: 2,
   drawMode: 'one_by_one' as const,
-  animationType: 'randomize' as const,
 }
 
 // ============================================
@@ -179,6 +181,31 @@ export const IMPORT_STATUS_LABELS: Record<string, string> = {
 export const WINNER_DISPLAY_MODE_LABELS: Record<string, string> = {
   coupon: 'Coupon ID',
   coupon_participant: 'Coupon ID + Participant ID',
+}
+
+/** Rolling sound options — key is value sent to backend */
+export const ROLLING_SOUND_OPTIONS: Record<string, { label: string; file: string | null }> = {
+  '': { label: 'No Sound', file: null },
+  '1': { label: 'Rolling 1', file: '/sounds/rolling/1.mp3' },
+  '2': { label: 'Rolling 2', file: '/sounds/rolling/2.mp3' },
+  '5': { label: 'Rolling 5', file: '/sounds/rolling/5.mp3' },
+  '7': { label: 'Rolling 7', file: '/sounds/rolling/7.mp3' },
+  '8': { label: 'Rolling 8', file: '/sounds/rolling/8.mp3' },
+  '9': { label: 'Rolling 9', file: '/sounds/rolling/9.mp3' },
+  '10': { label: 'Rolling 10', file: '/sounds/rolling/10.mp3' },
+}
+
+/** Reveal sound options — key is value sent to backend */
+export const REVEAL_SOUND_OPTIONS: Record<string, { label: string; file: string | null }> = {
+  '': { label: 'No Sound', file: null },
+  '1': { label: 'Reveal 1', file: '/sounds/revealing/1.mp3' },
+  '2': { label: 'Reveal 2', file: '/sounds/revealing/2.mp3' },
+  '3': { label: 'Reveal 3', file: '/sounds/revealing/3.mp3' },
+  '4': { label: 'Reveal 4', file: '/sounds/revealing/4.mp3' },
+  '5': { label: 'Reveal 5', file: '/sounds/revealing/5.mp3' },
+  '6': { label: 'Reveal 6', file: '/sounds/revealing/6.mp3' },
+  '7': { label: 'Reveal 7', file: '/sounds/revealing/7.mp3' },
+  '8': { label: 'Reveal 8', file: '/sounds/revealing/8.mp3' },
 }
 
 // ============================================
