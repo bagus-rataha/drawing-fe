@@ -19,6 +19,8 @@ import {
   DRAW_MODE_LABELS,
   ANIMATION_TYPE_LABELS,
   WINNER_DISPLAY_MODE_LABELS,
+  ROLLING_SOUND_OPTIONS,
+  REVEAL_SOUND_OPTIONS,
 } from '@/utils/constants'
 import { format } from 'date-fns'
 
@@ -147,6 +149,14 @@ export function StepReview({
                 <p className="font-medium">Custom image uploaded</p>
               </div>
             )}
+            <div>
+              <p className="text-sm text-muted-foreground">Rolling Sound</p>
+              <p className="font-medium">{ROLLING_SOUND_OPTIONS[displaySettings.rollingSound]?.label || 'No Sound'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Reveal Sound</p>
+              <p className="font-medium">{REVEAL_SOUND_OPTIONS[displaySettings.revealSound]?.label || 'No Sound'}</p>
+            </div>
           </div>
         </CardContent>
       </Card>

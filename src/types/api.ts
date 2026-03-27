@@ -27,6 +27,14 @@ export interface UserResponse {
   created_at: string
 }
 
+// Display Settings (JSONB field on events)
+export interface EventDisplaySettings {
+  animation_type: 'sphere' | 'rolling' | 'randomize'
+  winner_display: 'coupon' | 'coupon_participant'
+  rolling_sound: string
+  reveal_sound: string
+}
+
 // Events
 export interface EventListResponse {
   id: string
@@ -36,8 +44,7 @@ export interface EventListResponse {
   win_rule: 'onetime' | 'limited' | 'unlimited'
   max_win_count: number
   draw_mode: 'one_by_one' | 'batch'
-  animation_type: 'sphere' | 'rolling' | 'randomize'
-  winner_display: 'coupon' | 'coupon_participant'
+  display_settings: EventDisplaySettings
   total_participants: number
   total_coupons: number
   total_prizes: number
@@ -65,8 +72,7 @@ export interface CreateEventRequest {
   win_rule: 'onetime' | 'limited' | 'unlimited'
   max_win_count: number
   draw_mode: 'one_by_one' | 'batch'
-  animation_type: 'sphere' | 'rolling' | 'randomize'
-  winner_display: 'coupon' | 'coupon_participant'
+  display_settings: EventDisplaySettings
   prizes: PrizeRequest[]
 }
 
@@ -78,8 +84,7 @@ export interface UpdateEventRequest {
   win_rule?: 'onetime' | 'limited' | 'unlimited'
   max_win_count?: number
   draw_mode?: 'one_by_one' | 'batch'
-  animation_type?: 'sphere' | 'rolling' | 'randomize'
-  winner_display?: 'coupon' | 'coupon_participant'
+  display_settings?: EventDisplaySettings
 }
 
 // Prizes

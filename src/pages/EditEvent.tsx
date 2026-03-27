@@ -63,6 +63,8 @@ import {
   DRAW_MODE_LABELS,
   ANIMATION_TYPE_LABELS,
   WINNER_DISPLAY_MODE_LABELS,
+  ROLLING_SOUND_OPTIONS,
+  REVEAL_SOUND_OPTIONS,
 } from '@/utils/constants'
 import { resolveImageUrl } from '@/utils/helpers'
 import { ImportedDataTable } from '@/components/ImportedDataTable'
@@ -187,6 +189,8 @@ export default function EditEvent() {
 
   // Display settings
   const [winnerDisplayMode, setWinnerDisplayMode] = useState<'coupon' | 'coupon_participant'>('coupon')
+  const [rollingSound, setRollingSound] = useState('')
+  const [revealSound, setRevealSound] = useState('')
 
   // Prize state
   const [localPrizes, setLocalPrizes] = useState<LocalPrize[]>([])
@@ -232,8 +236,10 @@ export default function EditEvent() {
       setWinRuleType(event.win_rule)
       setMaxWins(event.max_win_count || 2)
       setDrawMode(event.draw_mode)
-      setAnimationType(event.animation_type)
-      setWinnerDisplayMode(event.winner_display || 'coupon')
+      setAnimationType(event.display_settings?.animation_type || 'randomize')
+      setWinnerDisplayMode(event.display_settings?.winner_display || 'coupon')
+      setRollingSound(event.display_settings?.rolling_sound || '')
+      setRevealSound(event.display_settings?.reveal_sound || '')
 
       const mappedPrizes = apiPrizes.map((p: PrizesListResponse) => ({
         id: p.id,
@@ -255,8 +261,12 @@ export default function EditEvent() {
         win_rule: event.win_rule,
         max_win_count: event.max_win_count || 0,
         draw_mode: event.draw_mode,
-        animation_type: event.animation_type,
-        winner_display: event.winner_display || 'coupon',
+        display_settings: {
+          animation_type: event.display_settings?.animation_type || 'randomize',
+          winner_display: event.display_settings?.winner_display || 'coupon',
+          rolling_sound: event.display_settings?.rolling_sound || '',
+          reveal_sound: event.display_settings?.reveal_sound || '',
+        },
       }
       initialPrizesRef.current = mappedPrizes.map((p) => ({ ...p })) as LocalPrize[]
 
@@ -280,10 +290,12 @@ export default function EditEvent() {
       winRuleType !== event.win_rule ||
       maxWins !== (event.max_win_count || 2) ||
       drawMode !== event.draw_mode ||
-      animationType !== event.animation_type ||
-      winnerDisplayMode !== (event.winner_display || 'coupon')
+      animationType !== (event.display_settings?.animation_type || 'randomize') ||
+      winnerDisplayMode !== (event.display_settings?.winner_display || 'coupon') ||
+      rollingSound !== (event.display_settings?.rolling_sound || '') ||
+      revealSound !== (event.display_settings?.reveal_sound || '')
     )
-  }, [initialized, event, name, description, winRuleType, maxWins, drawMode, animationType, winnerDisplayMode])
+  }, [initialized, event, name, description, winRuleType, maxWins, drawMode, animationType, winnerDisplayMode, rollingSound, revealSound])
 
   useUnsavedChangesWarning(hasUnsavedChanges)
 
@@ -424,8 +436,12 @@ export default function EditEvent() {
         win_rule: winRuleType as 'onetime' | 'limited' | 'unlimited',
         max_win_count: winRuleType === 'limited' ? maxWins : 0,
         draw_mode: drawMode,
-        animation_type: animationType,
-        winner_display: winnerDisplayMode,
+        display_settings: {
+          animation_type: animationType,
+          winner_display: winnerDisplayMode,
+          rolling_sound: rollingSound,
+          reveal_sound: revealSound,
+        },
       }
 
       // Dirty check: only update event if changed
@@ -439,8 +455,7 @@ export default function EditEvent() {
         eventData.win_rule !== prev.win_rule ||
         eventData.max_win_count !== prev.max_win_count ||
         eventData.draw_mode !== prev.draw_mode ||
-        eventData.animation_type !== prev.animation_type ||
-        eventData.winner_display !== prev.winner_display
+        JSON.stringify(eventData.display_settings) !== JSON.stringify(prev.display_settings)
 
       if (eventDirty) {
         await updateEvent.mutateAsync({ id, data: eventData })
@@ -708,6 +723,29 @@ export default function EditEvent() {
                       </div>
                     ))}
                   </RadioGroup>
+                </div>
+
+                {/* Sound Effects */}
+                <div className="space-y-3">
+                  <Label>Sound Effects</Label>
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Rolling Sound</Label>
+                      <select className="w-full rounded-md border px-3 py-2 text-sm" value={rollingSound} onChange={(e) => setRollingSound(e.target.value)}>
+                        {Object.entries(ROLLING_SOUND_OPTIONS).map(([key, opt]) => (
+                          <option key={key} value={key}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Reveal Sound</Label>
+                      <select className="w-full rounded-md border px-3 py-2 text-sm" value={revealSound} onChange={(e) => setRevealSound(e.target.value)}>
+                        {Object.entries(REVEAL_SOUND_OPTIONS).map(([key, opt]) => (
+                          <option key={key} value={key}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

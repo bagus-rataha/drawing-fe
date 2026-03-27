@@ -436,6 +436,8 @@ export interface CardLayout {
 export interface DisplaySettingsFormData {
   backgroundImage?: string
   winnerDisplayMode: 'coupon' | 'coupon_participant'
+  rollingSound: string
+  revealSound: string
 }
 
 // ============================================

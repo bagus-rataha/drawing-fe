@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { motion, useMotionValue, type PanInfo } from 'framer-motion'
+import { motion, useMotionValue } from 'framer-motion'
 import type { CardPosition } from '@/types'
 
 interface DraggableCardProps {

@@ -80,8 +80,12 @@ export function EventWizard() {
       win_rule: eventInfo.winRuleType as 'onetime' | 'limited' | 'unlimited',
       max_win_count: eventInfo.winRuleType === 'limited' ? eventInfo.maxWins : 0,
       draw_mode: eventInfo.drawMode as 'one_by_one' | 'batch',
-      animation_type: eventInfo.animationType as 'sphere' | 'rolling' | 'randomize',
-      winner_display: displaySettings.winnerDisplayMode,
+      display_settings: {
+        animation_type: eventInfo.animationType as 'sphere' | 'rolling' | 'randomize',
+        winner_display: displaySettings.winnerDisplayMode,
+        rolling_sound: displaySettings.rollingSound,
+        reveal_sound: displaySettings.revealSound,
+      },
       prizes: prizeRequests,
     }
 

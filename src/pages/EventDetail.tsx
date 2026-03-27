@@ -238,7 +238,7 @@ export function EventDetail() {
               <div>
                 <span className="text-sm text-content-muted">Animation: </span>
                 <span className="text-sm font-medium text-navy">
-                  {ANIMATION_TYPE_LABELS[event.animation_type] || event.animation_type}
+                  {ANIMATION_TYPE_LABELS[event.display_settings?.animation_type] || event.display_settings?.animation_type || 'N/A'}
                 </span>
               </div>
 

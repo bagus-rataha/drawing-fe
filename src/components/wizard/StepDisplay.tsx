@@ -8,8 +8,16 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { ArrowLeft, ArrowRight, Info } from 'lucide-react'
-import { WINNER_DISPLAY_MODE_LABELS } from '@/utils/constants'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ArrowLeft, ArrowRight, Info, Play } from 'lucide-react'
+import { WINNER_DISPLAY_MODE_LABELS, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
+import { useSound } from '@/hooks'
 
 interface StepDisplayProps {
   data: DisplaySettingsFormData
@@ -63,6 +71,27 @@ export function StepDisplay({
         </CardContent>
       </Card>
 
+      {/* Sound Effects */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <Label className="block text-base font-medium">Sound Effects</Label>
+          <p className="text-sm text-muted-foreground">Sound played during draw animation</p>
+
+          <SoundSelect
+            label="Rolling Sound"
+            value={data.rollingSound}
+            options={ROLLING_SOUND_OPTIONS}
+            onChange={(v) => onUpdate({ ...data, rollingSound: v })}
+          />
+          <SoundSelect
+            label="Reveal Sound"
+            value={data.revealSound}
+            options={REVEAL_SOUND_OPTIONS}
+            onChange={(v) => onUpdate({ ...data, revealSound: v })}
+          />
+        </CardContent>
+      </Card>
+
       {/* Actions */}
       <div className="flex justify-between">
         <Button variant="outline" onClick={onPrev}>
@@ -73,6 +102,33 @@ export function StepDisplay({
           Next
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
+      </div>
+    </div>
+  )
+}
+
+function SoundSelect({ label, value, options, onChange }: { label: string; value: string; options: Record<string, { label: string; file: string | null }>; onChange: (v: string) => void }) {
+  const { preview, stopPreview } = useSound()
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-sm">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Select value={value || '_none_'} onValueChange={(v) => { stopPreview(); onChange(v === '_none_' ? '' : v) }}>
+          <SelectTrigger className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(options).map(([key, opt]) => (
+              <SelectItem key={key || '_none_'} value={key || '_none_'}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {value && options[value]?.file && (
+          <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => preview(options[value].file)}>
+            <Play className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

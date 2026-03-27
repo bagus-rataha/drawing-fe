@@ -26,8 +26,9 @@ import { AbsoluteWinnerOverlay } from '@/components/draw/AbsoluteWinnerOverlay'
 import { DrawControls } from '@/components/draw/DrawControls'
 import { PrizeWinnersModal } from '@/components/draw/PrizeWinnersModal'
 import { Confetti, fireConfettiBurst } from '@/components/draw/Confetti'
-import { SPHERE_CONFIG } from '@/utils/constants'
+import { SPHERE_CONFIG, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
 import { resolveImageUrl } from '@/utils/helpers'
+import { useSound } from '@/hooks'
 
 // Default grid configuration
 const DEFAULT_GRID = {
@@ -114,6 +115,9 @@ export function DrawScreen() {
   const [animationCoupons, setAnimationCoupons] = useState<AnimationCouponResponse[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Sound
+  const { playLoop, stopLoop, playOnce } = useSound()
+
   // UI state
   const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [selectedPrizeForModal, setSelectedPrizeForModal] = useState<Prize | null>(null)
@@ -159,11 +163,24 @@ export function DrawScreen() {
 
   const currentPrize = prizes[currentPrizeIndex] || null
 
-  // Animation type from event
-  const animationType = event?.animation_type || 'sphere'
+  // Display settings from event
+  const ds = event?.display_settings
+  const animationType = ds?.animation_type || 'sphere'
+  const displayMode: WinnerDisplayMode = ds?.winner_display || 'coupon'
+  const rollingFile = ROLLING_SOUND_OPTIONS[ds?.rolling_sound || '']?.file ?? null
+  const revealFile = REVEAL_SOUND_OPTIONS[ds?.reveal_sound || '']?.file ?? null
 
-  // Display mode from event settings
-  const displayMode: WinnerDisplayMode = event?.winner_display || 'coupon'
+  // Sound triggers
+  useEffect(() => {
+    if (state === 'spinning') {
+      playLoop(rollingFile)
+    } else {
+      stopLoop()
+    }
+    if (state === 'revealing') {
+      playOnce(revealFile)
+    }
+  }, [state, rollingFile, revealFile, playLoop, stopLoop, playOnce])
 
   // Check if current prize is complete
   const isPrizeComplete = drawingStatus
