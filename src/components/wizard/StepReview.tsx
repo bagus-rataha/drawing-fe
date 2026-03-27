@@ -74,10 +74,6 @@ export function StepReview({
               <p className="text-sm text-muted-foreground">Draw Mode</p>
               <p className="font-medium">{DRAW_MODE_LABELS[eventInfo.drawMode]}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Animation Type</p>
-              <p className="font-medium">{ANIMATION_TYPE_LABELS[eventInfo.animationType]}</p>
-            </div>
             {(eventInfo.startDate || eventInfo.endDate) && (
               <div className="col-span-2">
                 <p className="text-sm text-muted-foreground">Event Date</p>
@@ -135,6 +131,10 @@ export function StepReview({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Animation Type</p>
+              <p className="font-medium">{ANIMATION_TYPE_LABELS[displaySettings.animationType]}</p>
+            </div>
             <div>
               <p className="text-sm text-muted-foreground">Winner Display</p>
               <p className="font-medium">

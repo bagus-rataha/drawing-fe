@@ -98,6 +98,7 @@ export const DEFAULT_WIN_RULE = {
 /** Default display settings (UI-only, not sent to API) */
 export const DEFAULT_DISPLAY_SETTINGS = {
   backgroundImage: '' as string,
+  animationType: 'randomize' as const,
   winnerDisplayMode: 'coupon' as const,
   rollingSound: '' as string,
   revealSound: '' as string,
@@ -112,7 +113,6 @@ export const DEFAULT_EVENT_INFO = {
   winRuleType: 'onetime' as const,
   maxWins: 2,
   drawMode: 'one_by_one' as const,
-  animationType: 'randomize' as const,
 }
 
 // ============================================

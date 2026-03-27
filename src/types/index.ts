@@ -402,7 +402,6 @@ export interface EventInfoFormData {
   winRuleType: WinRuleType
   maxWins: number
   drawMode: 'one_by_one' | 'batch'
-  animationType: 'sphere' | 'rolling' | 'randomize'
 }
 
 /**
@@ -435,6 +434,7 @@ export interface CardLayout {
  */
 export interface DisplaySettingsFormData {
   backgroundImage?: string
+  animationType: 'sphere' | 'rolling' | 'randomize'
   winnerDisplayMode: 'coupon' | 'coupon_participant'
   rollingSound: string
   revealSound: string

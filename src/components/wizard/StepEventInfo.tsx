@@ -20,7 +20,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { validateEventInfo } from '@/services/validationService'
-import { WIN_RULE_LABELS, DRAW_MODE_LABELS, ANIMATION_TYPE_LABELS } from '@/utils/constants'
+import { WIN_RULE_LABELS, DRAW_MODE_LABELS } from '@/utils/constants'
 import { AlertCircle, ArrowRight, CalendarIcon } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -226,32 +226,6 @@ export function StepEventInfo({ data, prizes, onUpdate, onPrizesUpdate, onNext }
           </p>
         </div>
 
-        {/* Animation Type */}
-        <div className="space-y-2">
-          <Label>
-            Animation Type <span className="text-destructive">*</span>
-          </Label>
-          <RadioGroup
-            value={data.animationType}
-            onValueChange={(value) => handleChange('animationType', value)}
-            className="flex gap-4"
-          >
-            {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
-              const isDisabled = value !== 'randomize'
-              return (
-                <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
-                  <RadioGroupItem value={value} id={`animationType-${value}`} disabled={isDisabled} />
-                  <Label htmlFor={`animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                    {label}{isDisabled && ' (Coming Soon)'}
-                  </Label>
-                </div>
-              )
-            })}
-          </RadioGroup>
-          <p className="text-sm text-muted-foreground">
-            Animation style for the draw screen
-          </p>
-        </div>
       </div>
 
       {/* Validation Errors */}

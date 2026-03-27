@@ -633,22 +633,6 @@ export default function EditEvent() {
                   </RadioGroup>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Animation Type <span className="text-destructive">*</span></Label>
-                  <RadioGroup value={animationType} onValueChange={(v) => setAnimationType(v as 'sphere' | 'rolling' | 'randomize')} className="flex gap-4">
-                    {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
-                      const isDisabled = value !== 'randomize'
-                      return (
-                        <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
-                          <RadioGroupItem value={value} id={`edit-animationType-${value}`} disabled={isDisabled} />
-                          <Label htmlFor={`edit-animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                            {label}{isDisabled && ' (Coming Soon)'}
-                          </Label>
-                        </div>
-                      )
-                    })}
-                  </RadioGroup>
-                </div>
               </CardContent>
             </Card>
 
@@ -707,6 +691,23 @@ export default function EditEvent() {
                 <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800">
                   <Info className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">Background images are configured per-prize in the prize dialog above.</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Animation Type</Label>
+                  <RadioGroup value={animationType} onValueChange={(v) => setAnimationType(v as 'sphere' | 'rolling' | 'randomize')} className="flex gap-4">
+                    {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
+                      const isDisabled = value !== 'randomize'
+                      return (
+                        <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
+                          <RadioGroupItem value={value} id={`edit-animationType-${value}`} disabled={isDisabled} />
+                          <Label htmlFor={`edit-animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                            {label}{isDisabled && ' (Coming Soon)'}
+                          </Label>
+                        </div>
+                      )
+                    })}
+                  </RadioGroup>
                 </div>
 
                 <div className="space-y-2">

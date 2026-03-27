@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, ArrowRight, Info, Play } from 'lucide-react'
-import { WINNER_DISPLAY_MODE_LABELS, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
+import { ANIMATION_TYPE_LABELS, WINNER_DISPLAY_MODE_LABELS, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
 import { useSound } from '@/hooks'
 
 interface StepDisplayProps {
@@ -41,6 +41,32 @@ export function StepDisplay({
           Background images are configured per-prize in Step 2. Each prize can have its own background for the draw screen.
         </span>
       </div>
+
+      {/* Animation Type */}
+      <Card>
+        <CardContent className="p-4">
+          <Label className="mb-4 block text-base font-medium">Animation Type</Label>
+          <RadioGroup
+            value={data.animationType}
+            onValueChange={(value: 'sphere' | 'rolling' | 'randomize') =>
+              onUpdate({ ...data, animationType: value })
+            }
+            className="flex gap-4"
+          >
+            {Object.entries(ANIMATION_TYPE_LABELS).map(([value, label]) => {
+              const isDisabled = value !== 'randomize'
+              return (
+                <div key={value} className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}>
+                  <RadioGroupItem value={value} id={`animationType-${value}`} disabled={isDisabled} />
+                  <Label htmlFor={`animationType-${value}`} className={isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                    {label}{isDisabled && ' (Coming Soon)'}
+                  </Label>
+                </div>
+              )
+            })}
+          </RadioGroup>
+        </CardContent>
+      </Card>
 
       {/* Winner Display Options */}
       <Card>
