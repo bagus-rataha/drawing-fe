@@ -3,6 +3,7 @@
  * @description Step 3: Display Settings
  */
 
+import { useState } from 'react'
 import type { DisplaySettingsFormData } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, ArrowRight, Info, Play } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Info, Play, Square } from 'lucide-react'
 import { ANIMATION_TYPE_LABELS, WINNER_DISPLAY_MODE_LABELS, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
 import { useSound } from '@/hooks'
 
@@ -135,12 +136,26 @@ export function StepDisplay({
 
 function SoundSelect({ label, value, options, onChange }: { label: string; value: string; options: Record<string, { label: string; file: string | null }>; onChange: (v: string) => void }) {
   const { preview, stopPreview } = useSound()
+  const [playing, setPlaying] = useState(false)
+
+  const handleToggle = () => {
+    if (playing) {
+      stopPreview()
+      setPlaying(false)
+    } else {
+      const file = options[value]?.file
+      if (file) {
+        preview(file)
+        setPlaying(true)
+      }
+    }
+  }
 
   return (
     <div className="space-y-1">
       <Label className="text-sm">{label}</Label>
       <div className="flex items-center gap-2">
-        <Select value={value || '_none_'} onValueChange={(v) => { stopPreview(); onChange(v === '_none_' ? '' : v) }}>
+        <Select value={value || '_none_'} onValueChange={(v) => { stopPreview(); setPlaying(false); onChange(v === '_none_' ? '' : v) }}>
           <SelectTrigger className="flex-1">
             <SelectValue />
           </SelectTrigger>
@@ -151,8 +166,8 @@ function SoundSelect({ label, value, options, onChange }: { label: string; value
           </SelectContent>
         </Select>
         {value && options[value]?.file && (
-          <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => preview(options[value].file)}>
-            <Play className="h-4 w-4" />
+          <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={handleToggle}>
+            {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
         )}
       </div>

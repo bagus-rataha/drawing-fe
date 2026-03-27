@@ -46,6 +46,8 @@ import {
   AlertCircle,
   Info,
   CalendarIcon,
+  Play,
+  Square,
 } from 'lucide-react'
 import {
   useEvent,
@@ -55,6 +57,7 @@ import {
   useCreatePrizes,
   useDeletePrize,
   useUnsavedChangesWarning,
+  useSound,
 } from '@/hooks'
 import type { WinRuleType, CardLayout } from '@/types'
 import type { UpdateEventRequest, PrizeRequest, BulkUpdatePrizeRequest, PrizesListResponse } from '@/types/api'
@@ -730,22 +733,8 @@ export default function EditEvent() {
                 <div className="space-y-3">
                   <Label>Sound Effects</Label>
                   <div className="space-y-2">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Rolling Sound</Label>
-                      <select className="w-full rounded-md border px-3 py-2 text-sm" value={rollingSound} onChange={(e) => setRollingSound(e.target.value)}>
-                        {Object.entries(ROLLING_SOUND_OPTIONS).map(([key, opt]) => (
-                          <option key={key} value={key}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-sm">Reveal Sound</Label>
-                      <select className="w-full rounded-md border px-3 py-2 text-sm" value={revealSound} onChange={(e) => setRevealSound(e.target.value)}>
-                        {Object.entries(REVEAL_SOUND_OPTIONS).map(([key, opt]) => (
-                          <option key={key} value={key}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <EditSoundSelect label="Rolling Sound" value={rollingSound} options={ROLLING_SOUND_OPTIONS} onChange={setRollingSound} />
+                    <EditSoundSelect label="Reveal Sound" value={revealSound} options={REVEAL_SOUND_OPTIONS} onChange={setRevealSound} />
                   </div>
                 </div>
               </CardContent>
@@ -919,6 +908,48 @@ export default function EditEvent() {
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
       />
+    </div>
+  )
+}
+
+function EditSoundSelect({ label, value, options, onChange }: { label: string; value: string; options: Record<string, { label: string; file: string | null }>; onChange: (v: string) => void }) {
+  const { preview, stopPreview } = useSound()
+  const [playing, setPlaying] = useState(false)
+
+  const handleToggle = () => {
+    if (playing) {
+      stopPreview()
+      setPlaying(false)
+    } else {
+      const file = options[value]?.file
+      if (file) {
+        preview(file)
+        setPlaying(true)
+      }
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    stopPreview()
+    setPlaying(false)
+    onChange(e.target.value)
+  }
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-sm">{label}</Label>
+      <div className="flex items-center gap-2">
+        <select className="flex-1 rounded-md border px-3 py-2 text-sm" value={value} onChange={handleChange}>
+          {Object.entries(options).map(([key, opt]) => (
+            <option key={key} value={key}>{opt.label}</option>
+          ))}
+        </select>
+        {value && options[value]?.file && (
+          <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={handleToggle}>
+            {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
