@@ -266,9 +266,10 @@ export default function EditEvent() {
       const prizesDirty =
         localPrizes.length !== prevPrizes.length ||
         localPrizes.some((p, i) => {
-          const old = prevPrizes[i]
+          const old = prevPrizes.find((o) => o.id === p.id)
+          if (!old) return true
           return (
-            p.id !== old.id ||
+            i !== prevPrizes.indexOf(old) ||
             p.name !== old.name ||
             p.quantity !== old.quantity ||
             p.batchNumber !== old.batchNumber ||
@@ -280,7 +281,7 @@ export default function EditEvent() {
 
       if (prizesDirty && localPrizes.length > 0) {
         const bulkData: BulkUpdatePrizeRequest[] = localPrizes.map((p, i) => {
-          const old = prevPrizes[i]
+          const old = prevPrizes.find((o) => o.id === p.id)
           const entry: BulkUpdatePrizeRequest = {
             id: p.id,
             name: p.name,
@@ -289,12 +290,17 @@ export default function EditEvent() {
             batch_number: drawMode === 'batch' ? p.batchNumber : 1,
             card_layout: p.cardLayout ?? {},
           }
-          // Only send image fields if changed (avoid sending URL back to API)
-          if (p.image !== old?.image) {
-            entry.prize_image = p.image || ''
+          // Only send image if changed: base64 (new upload) or "" (deleted)
+          // Skip if still a URL from API (unchanged)
+          const imageChanged = p.image !== old?.image
+          if (imageChanged) {
+            if (!p.image || p.image === '') entry.prize_image = ''
+            else if (!p.image.startsWith('http')) entry.prize_image = p.image
           }
-          if (p.backgroundImage !== old?.backgroundImage) {
-            entry.background_image = p.backgroundImage || ''
+          const bgChanged = p.backgroundImage !== old?.backgroundImage
+          if (bgChanged) {
+            if (!p.backgroundImage || p.backgroundImage === '') entry.background_image = ''
+            else if (!p.backgroundImage.startsWith('http')) entry.background_image = p.backgroundImage
           }
           return entry
         })
