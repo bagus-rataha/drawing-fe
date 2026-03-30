@@ -7,6 +7,7 @@ function getCachedAudio(file: string): HTMLAudioElement {
   let audio = audioCache.get(file)
   if (!audio) {
     audio = new Audio(file)
+    audio.load()
     audioCache.set(file, audio)
   }
   return audio
@@ -48,10 +49,10 @@ export function useSound() {
 
   const playOnce = useCallback((file: string | null) => {
     if (!file) return
-    // Clone from cache so overlapping plays work
-    const cached = getCachedAudio(file)
-    const clone = cached.cloneNode() as HTMLAudioElement
-    clone.play().catch(() => {})
+    const audio = getCachedAudio(file)
+    audio.currentTime = 0
+    audio.loop = false
+    audio.play().catch(() => {})
   }, [])
 
   const preview = useCallback((file: string | null, onEnded?: () => void) => {
@@ -78,5 +79,9 @@ export function useSound() {
     }
   }, [])
 
-  return { playLoop, stopLoop, playOnce, preview, stopPreview }
+  const preload = useCallback((file: string | null) => {
+    if (file) getCachedAudio(file)
+  }, [])
+
+  return { playLoop, stopLoop, playOnce, preview, stopPreview, preload }
 }

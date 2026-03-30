@@ -17,6 +17,7 @@ import type { EventResponse, PrizesListResponse, DrawingStatusResponse, Animatio
 import type { Prize, WinnerDisplayMode, CardLayout } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
 import { winnerKeys } from '@/hooks/useWinners'
+import { prizeKeys } from '@/hooks/usePrizes'
 import { PrizePanel } from '@/components/draw/PrizePanel'
 const Sphere3D = lazy(() => import('@/components/draw/Sphere3D').then(m => ({ default: m.Sphere3D })))
 import { RandomizeAnimation } from '@/components/draw/RandomizeAnimation'
@@ -53,7 +54,7 @@ export function DrawScreen() {
   const [loading, setLoading] = useState(true)
 
   // Sound
-  const { playLoop, stopLoop, playOnce } = useSound()
+  const { playLoop, stopLoop, playOnce, preload } = useSound()
 
   // UI state
   const [isPanelOpen, setIsPanelOpen] = useState(true)
@@ -106,6 +107,12 @@ export function DrawScreen() {
   const displayMode: WinnerDisplayMode = ds?.winner_display || 'coupon'
   const rollingFile = ROLLING_SOUND_OPTIONS[ds?.rolling_sound || '']?.file ?? null
   const revealFile = REVEAL_SOUND_OPTIONS[ds?.reveal_sound || '']?.file ?? null
+
+  // Preload sound files as soon as we know which sounds to use
+  useEffect(() => {
+    preload(rollingFile)
+    preload(revealFile)
+  }, [rollingFile, revealFile, preload])
 
   // Sound triggers
   useEffect(() => {
@@ -395,6 +402,7 @@ export function DrawScreen() {
       queryClient.invalidateQueries({ queryKey: winnerKeys.list(eventId) })
       queryClient.invalidateQueries({ queryKey: winnerKeys.grouped(eventId) })
       queryClient.invalidateQueries({ queryKey: winnerKeys.count(eventId) })
+      queryClient.invalidateQueries({ queryKey: prizeKeys.list(eventId) })
 
       // Refetch drawing status and event to detect completion
       const [newStatus, updatedEvent, updatedPrizes] = await Promise.all([
