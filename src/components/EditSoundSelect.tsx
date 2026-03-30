@@ -22,7 +22,7 @@ export function EditSoundSelect({ label, value, options, onChange }: EditSoundSe
     } else {
       const file = options[value]?.file
       if (file) {
-        preview(file)
+        preview(file, () => setPlaying(false))
         setPlaying(true)
       }
     }

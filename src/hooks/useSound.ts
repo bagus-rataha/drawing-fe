@@ -54,8 +54,9 @@ export function useSound() {
     clone.play().catch(() => {})
   }, [])
 
-  const preview = useCallback((file: string | null) => {
+  const preview = useCallback((file: string | null, onEnded?: () => void) => {
     if (previewRef.current) {
+      previewRef.current.onended = null
       previewRef.current.pause()
       previewRef.current = null
     }
@@ -64,6 +65,7 @@ export function useSound() {
     const audio = getCachedAudio(file)
     audio.currentTime = 0
     audio.loop = false
+    audio.onended = onEnded || null
     audio.play().catch(() => {})
     previewRef.current = audio
   }, [])

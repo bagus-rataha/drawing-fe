@@ -145,7 +145,7 @@ function SoundSelect({ label, value, options, onChange }: { label: string; value
     } else {
       const file = options[value]?.file
       if (file) {
-        preview(file)
+        preview(file, () => setPlaying(false))
         setPlaying(true)
       }
     }
