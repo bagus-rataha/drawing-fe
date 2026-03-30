@@ -33,21 +33,18 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PrizeImageUpload } from '@/components/wizard/PrizeImageUpload'
 import { BackgroundImageUpload } from '@/components/wizard/BackgroundImageUpload'
 import { CardLayoutEditor } from '@/components/editor/CardLayoutEditor'
+import { EditSoundSelect } from '@/components/EditSoundSelect'
 import { generateAutoGrid } from '@/components/editor/useCardLayout'
+import { SortablePrizeItem } from '@/components/SortablePrizeItem'
+import { useEditPrizes, type LocalPrize } from '@/hooks/useEditPrizes'
 import {
   ArrowLeft,
   Save,
   Plus,
-  Edit,
-  Trash2,
-  GripVertical,
   Gift,
-  ImageIcon,
   AlertCircle,
   Info,
   CalendarIcon,
-  Play,
-  Square,
 } from 'lucide-react'
 import {
   useEvent,
@@ -57,10 +54,9 @@ import {
   useCreatePrizes,
   useDeletePrize,
   useUnsavedChangesWarning,
-  useSound,
 } from '@/hooks'
-import type { WinRuleType, CardLayout } from '@/types'
-import type { UpdateEventRequest, PrizeRequest, BulkUpdatePrizeRequest, PrizesListResponse } from '@/types/api'
+import type { WinRuleType } from '@/types'
+import type { UpdateEventRequest, BulkUpdatePrizeRequest, PrizesListResponse } from '@/types/api'
 import {
   WIN_RULE_LABELS,
   DRAW_MODE_LABELS,
@@ -82,89 +78,12 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from '@dnd-kit/core'
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-
-interface LocalPrize {
-  id: string
-  name: string
-  image?: string
-  backgroundImage?: string
-  quantity: number
-  batchNumber: number
-  cardLayout?: CardLayout
-}
-
-function SortablePrizeItem({
-  prize,
-  index,
-  showBatch,
-  onEdit,
-  onDelete,
-}: {
-  prize: LocalPrize
-  index: number
-  showBatch: boolean
-  onEdit: (prize: LocalPrize) => void
-  onDelete: (id: string) => void
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: prize.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 1 : 0,
-  }
-
-  return (
-    <Card ref={setNodeRef} style={style} className={isDragging ? 'shadow-lg' : ''}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <div
-          className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-5 w-5" />
-        </div>
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-custom bg-surface-alt">
-          {prize.image ? (
-            <img src={prize.image} alt={prize.name} className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-5 w-5 text-content-muted" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">#{index + 1}</span>
-            <span className="truncate font-semibold">{prize.name}</span>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {prize.quantity} winner{prize.quantity > 1 ? 's' : ''}
-            {showBatch && prize.batchNumber >= 2 && ` · Batch: ${prize.batchNumber}`}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={() => onEdit(prize)}>
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(prize.id)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 export default function EditEvent() {
   const { id } = useParams<{ id: string }>()
@@ -195,22 +114,17 @@ export default function EditEvent() {
   const [rollingSound, setRollingSound] = useState('')
   const [revealSound, setRevealSound] = useState('')
 
-  // Prize state
-  const [localPrizes, setLocalPrizes] = useState<LocalPrize[]>([])
-
-  // Prize dialog
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingPrize, setEditingPrize] = useState<LocalPrize | null>(null)
-  const [prizeForm, setPrizeForm] = useState<LocalPrize>({ id: '', name: '', quantity: 1, batchNumber: 1 })
-  const [formErrors, setFormErrors] = useState<string[]>([])
-  const [isCreatingPrize, setIsCreatingPrize] = useState(false)
-
-  // Layout editor
-  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
-
-  // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<LocalPrize | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+  // Prize management (extracted hook)
+  const prizes = useEditPrizes({ eventId: id, drawMode, createPrizes, deletePrize })
+  const {
+    localPrizes, setLocalPrizes, prizeIds,
+    isDialogOpen, setIsDialogOpen, editingPrize,
+    prizeForm, setPrizeForm, formErrors, isCreatingPrize,
+    layoutEditorOpen, setLayoutEditorOpen,
+    deleteTarget, setDeleteTarget, isDeleting, drawPreview,
+    handleDragEnd, handleAddPrize, handleEditPrize,
+    handleDeletePrize, handleConfirmDelete, handleSavePrize,
+  } = prizes
 
   // Initialized flag
   const [initialized, setInitialized] = useState(false)
@@ -302,128 +216,11 @@ export default function EditEvent() {
 
   useUnsavedChangesWarning(hasUnsavedChanges)
 
-  // DnD
+  // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
-  const prizeIds = useMemo(() => localPrizes.map((p) => p.id), [localPrizes])
-
-  const handleDragEnd = (dragEvent: DragEndEvent) => {
-    const { active, over } = dragEvent
-    if (over && active.id !== over.id) {
-      const oldIndex = localPrizes.findIndex((p) => p.id === active.id)
-      const newIndex = localPrizes.findIndex((p) => p.id === over.id)
-      setLocalPrizes(arrayMove(localPrizes, oldIndex, newIndex))
-    }
-  }
-
-  // Prize CRUD
-  const handleAddPrize = () => {
-    setEditingPrize(null)
-    setPrizeForm({ id: '', name: '', quantity: 1, batchNumber: drawMode === 'batch' ? 2 : 1 })
-    setFormErrors([])
-    setIsDialogOpen(true)
-  }
-
-  const handleEditPrize = (prize: LocalPrize) => {
-    setEditingPrize(prize)
-    setPrizeForm({ ...prize })
-    setFormErrors([])
-    setIsDialogOpen(true)
-  }
-
-  // Delete: show confirmation dialog
-  const handleDeletePrize = (prizeId: string) => {
-    const prize = localPrizes.find((p) => p.id === prizeId)
-    if (prize) setDeleteTarget(prize)
-  }
-
-  // Delete: confirmed → immediate API call
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget || !id) return
-    setIsDeleting(true)
-    try {
-      await deletePrize.mutateAsync({ id: deleteTarget.id, eventId: id })
-      setLocalPrizes((prev) => prev.filter((p) => p.id !== deleteTarget.id))
-      setDeleteTarget(null)
-    } catch {
-      // Error toast handled by hook
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  // Save prize from dialog: immediate CREATE for new, local update for edit
-  const handleSavePrize = async () => {
-    const errors: string[] = []
-    if (!prizeForm.name.trim()) errors.push('Prize name is required')
-    if (prizeForm.quantity < 1) errors.push('Quantity must be at least 1')
-    if (drawMode === 'batch') {
-      if (prizeForm.batchNumber < 1) errors.push('Batch number must be at least 1')
-      if (prizeForm.batchNumber > prizeForm.quantity) errors.push('Batch number must not exceed quantity')
-    }
-    if (errors.length > 0) {
-      setFormErrors(errors)
-      return
-    }
-
-    if (editingPrize) {
-      // Edit existing prize → local update (saved on bulk update via Save)
-      setLocalPrizes((prev) => prev.map((p) => (p.id === prizeForm.id ? prizeForm : p)))
-      setIsDialogOpen(false)
-    } else {
-      // New prize → immediate POST to API
-      if (!id) return
-      setIsCreatingPrize(true)
-      try {
-        const prizeRequest: PrizeRequest[] = [{
-          name: prizeForm.name,
-          quantity: prizeForm.quantity,
-          sequence: localPrizes.length + 1,
-          batch_number: drawMode === 'batch' ? prizeForm.batchNumber : 1,
-          prize_image: prizeForm.image || undefined,
-          background_image: prizeForm.backgroundImage || undefined,
-          card_layout: prizeForm.cardLayout ?? {},
-        }]
-        const created = await createPrizes.mutateAsync({ eventId: id, prizes: prizeRequest })
-        // Add to local state with server ID (use URLs from response)
-        if (created.length > 0) {
-          const newPrize: LocalPrize = {
-            id: created[0].id,
-            name: created[0].name,
-            quantity: created[0].quantity,
-            batchNumber: created[0].batch_number,
-            image: resolveImageUrl(created[0].prize_image) || prizeForm.image,
-            backgroundImage: resolveImageUrl(created[0].background_image) || prizeForm.backgroundImage,
-            cardLayout: created[0].card_layout?.positions?.length ? created[0].card_layout : undefined,
-          }
-          setLocalPrizes((prev) => [...prev, newPrize])
-        }
-        setIsDialogOpen(false)
-      } catch {
-        // Error toast handled by hook
-      } finally {
-        setIsCreatingPrize(false)
-      }
-    }
-  }
-
-  // Draw preview
-  const drawPreview = useMemo(() => {
-    if (drawMode === 'one_by_one') {
-      if (prizeForm.quantity < 1) return null
-      return `Prize ini akan di-draw <strong>satu per satu</strong> sebanyak <strong>${prizeForm.quantity} kali</strong>`
-    }
-    // Batch mode: only show when valid range
-    if (prizeForm.batchNumber < 2 || prizeForm.batchNumber >= prizeForm.quantity) return null
-    const totalBatches = Math.ceil(prizeForm.quantity / prizeForm.batchNumber)
-    const remainder = prizeForm.quantity % prizeForm.batchNumber
-    if (remainder === 0) {
-      return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, tiap batch di-draw <strong>${prizeForm.batchNumber} kali</strong> draw`
-    }
-    return `Prize ini terdiri dari <strong>${totalBatches} batch</strong>, tiap batch di-draw <strong>${prizeForm.batchNumber} kali</strong>, dengan batch terakhir sebanyak <strong>${remainder} kali</strong> draw`
-  }, [drawMode, prizeForm.quantity, prizeForm.batchNumber])
 
   // Save handler — only event update + bulk update prizes (reorder/edits)
   const handleSave = async () => {
@@ -912,44 +709,3 @@ export default function EditEvent() {
   )
 }
 
-function EditSoundSelect({ label, value, options, onChange }: { label: string; value: string; options: Record<string, { label: string; file: string | null }>; onChange: (v: string) => void }) {
-  const { preview, stopPreview } = useSound()
-  const [playing, setPlaying] = useState(false)
-
-  const handleToggle = () => {
-    if (playing) {
-      stopPreview()
-      setPlaying(false)
-    } else {
-      const file = options[value]?.file
-      if (file) {
-        preview(file)
-        setPlaying(true)
-      }
-    }
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    stopPreview()
-    setPlaying(false)
-    onChange(e.target.value)
-  }
-
-  return (
-    <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
-      <div className="flex items-center gap-2">
-        <select className="flex-1 rounded-md border px-3 py-2 text-sm" value={value} onChange={handleChange}>
-          {Object.entries(options).map(([key, opt]) => (
-            <option key={key} value={key}>{opt.label}</option>
-          ))}
-        </select>
-        {value && options[value]?.file && (
-          <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={handleToggle}>
-            {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}

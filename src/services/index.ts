@@ -10,7 +10,6 @@ export {
   parseExcelFile,
   detectCustomFields,
   importExcel,
-  exportWinnersToExcel,
   getExcelPreview,
 } from './excelService'
 

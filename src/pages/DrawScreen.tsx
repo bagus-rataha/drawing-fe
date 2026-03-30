@@ -6,28 +6,29 @@
  * Supports sphere and randomize animation types.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Trophy } from 'lucide-react'
 import { getEvent } from '@/services/api/eventApi'
 import { getPrizesByEvent } from '@/services/api/prizeApi'
 import { getDrawingStatus, getAnimationCoupons } from '@/services/api/drawingApi'
-import type { EventResponse, PrizesListResponse, DrawingStatusResponse, AnimationCouponResponse, WinnerResponse } from '@/types/api'
+import type { EventResponse, PrizesListResponse, DrawingStatusResponse, AnimationCouponResponse } from '@/types/api'
 import type { Prize, WinnerDisplayMode, CardLayout } from '@/types'
 import { useDrawState } from '@/hooks/useDrawState'
-import type { DrawResultWithId } from '@/hooks/useDrawState'
 import { winnerKeys } from '@/hooks/useWinners'
 import { PrizePanel } from '@/components/draw/PrizePanel'
-import { Sphere3D } from '@/components/draw/Sphere3D'
+const Sphere3D = lazy(() => import('@/components/draw/Sphere3D').then(m => ({ default: m.Sphere3D })))
 import { RandomizeAnimation } from '@/components/draw/RandomizeAnimation'
 import { WinnerGallery } from '@/components/draw/WinnerGallery'
 import { AbsoluteWinnerOverlay } from '@/components/draw/AbsoluteWinnerOverlay'
 import { DrawControls } from '@/components/draw/DrawControls'
 import { PrizeWinnersModal } from '@/components/draw/PrizeWinnersModal'
 import { Confetti, fireConfettiBurst } from '@/components/draw/Confetti'
-import { SPHERE_CONFIG, ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
+import { ROLLING_SOUND_OPTIONS, REVEAL_SOUND_OPTIONS } from '@/utils/constants'
+import { SPHERE_CONFIG } from '@/config/sphereConfig'
 import { resolveImageUrl } from '@/utils/helpers'
+import { mapApiPrizeToLocal, processCurrentBatchDraw } from '@/utils/drawHelpers'
 import { useSound } from '@/hooks'
 
 // Default grid configuration
@@ -39,70 +40,6 @@ const DEFAULT_GRID = {
 /**
  * Map a WinnerResponse from backend to frontend DrawResultWithId
  */
-function mapWinnerResponseToDrawResult(w: WinnerResponse, slot: number): DrawResultWithId {
-  return {
-    id: w.id,
-    lineNumber: w.line_number || slot,
-    participantId: w.coupon?.participant?.id || '',
-    participantName: w.coupon?.participant?.name,
-    couponId: w.coupon?.id || '',
-    couponIdentifier: w.coupon?.coupon_import_identifier,
-    participantImportId: w.coupon?.participant?.participant_import_identifier,
-    status: w.status === 'active' ? 'valid' : 'cancelled',
-    cancelReason: w.cancel_reason
-      ? { type: 'manual' as const, message: w.cancel_reason }
-      : undefined,
-  }
-}
-
-/**
- * Process current_batch_draw from backend: filter active + last void per slot
- * Per spec: current_batch_draw can have more records than slots (multiple voids per slot)
- */
-function processCurrentBatchDraw(status: DrawingStatusResponse): DrawResultWithId[] {
-  const { current_batch_draw, empty_slots, total_batch_winner } = status
-  const totalSlots = total_batch_winner + empty_slots.length
-
-  const activeWinners = current_batch_draw.filter((w) => w.status === 'active')
-  const voidWinners = current_batch_draw.filter((w) => w.status === 'void')
-
-  const result: DrawResultWithId[] = []
-  for (let slot = 1; slot <= totalSlots; slot++) {
-    const active = activeWinners.find((w) => w.line_number === slot)
-    if (active) {
-      result.push(mapWinnerResponseToDrawResult(active, slot))
-    } else {
-      // Get the LAST void for this slot (per spec: show latest void)
-      const voidsInSlot = voidWinners.filter((w) => w.line_number === slot)
-      const lastVoid = voidsInSlot[voidsInSlot.length - 1]
-      if (lastVoid) {
-        result.push(mapWinnerResponseToDrawResult(lastVoid, slot))
-      }
-    }
-  }
-  return result
-}
-
-/**
- * Map API PrizesListResponse to local Prize type for components that need it
- */
-function mapApiPrizeToLocal(p: PrizesListResponse): Prize {
-  return {
-    id: p.id,
-    eventId: '',
-    name: p.name,
-    image: resolveImageUrl(p.prize_image),
-    backgroundImage: resolveImageUrl(p.background_image),
-    quantity: p.quantity,
-    sequence: p.sequence,
-    drawnCount: p.winners?.filter(w => w.status === 'active' && w.confirmed_at).length || 0,
-    drawConfig: {
-      mode: 'batch',
-      batches: [p.batch_number],
-    },
-  }
-}
-
 export function DrawScreen() {
   const { id: eventId } = useParams<{ id: string }>()
   const navigate = useNavigate()

@@ -41,7 +41,7 @@ import {
 import { useEvent, usePrizes } from '@/hooks'
 import { useToast } from '@/components/ui/use-toast'
 import { formatNumber } from '@/utils/helpers'
-import { exportHistoryToExcel } from '@/services/excelService'
+import { exportHistoryToExcel } from '@/services/excelExportService'
 import type { PrizesListResponse, WinnerResponse } from '@/types/api'
 
 const ITEMS_PER_PAGE = 10

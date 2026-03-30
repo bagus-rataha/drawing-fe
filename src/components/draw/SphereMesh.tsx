@@ -8,7 +8,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { InstancedCards } from './InstancedCards'
-import { SPHERE_CONFIG } from '@/utils/constants'
+import { SPHERE_CONFIG } from '@/config/sphereConfig'
 import type { CouponForAtlas } from '@/utils/textureAtlas'
 import type { WinnerDisplayMode } from '@/types'
 

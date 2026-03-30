@@ -10,7 +10,7 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { SPHERE_CONFIG } from '@/utils/constants'
+import { SPHERE_CONFIG } from '@/config/sphereConfig'
 import { createTextureAtlas, type CouponForAtlas } from '@/utils/textureAtlas'
 import type { WinnerDisplayMode } from '@/types'
 

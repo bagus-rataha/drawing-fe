@@ -7,7 +7,7 @@ import { useState } from 'react'
 import type { Winner, Prize } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-react'
-import { exportWinnersToExcel } from '@/services/excelService'
+import { exportWinnersToExcel } from '@/services/excelExportService'
 import { useToast } from '@/components/ui/use-toast'
 
 interface ExportButtonProps {
